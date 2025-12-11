@@ -9,9 +9,11 @@ pnpm-debug.log*
 
 # Env / secrets
 .env
-.env.*
 .env.local
 .envrc
+# Ignore other .env.* files but keep the template tracked
+.env.*
+!.env.example
 
 # Logs and temp
 logs/

@@ -14,7 +14,6 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 const server = new McpServer({
   name: "phishing-ml-server",
   version: "1.0.0",
-  // ikinci argüman (capabilities) opsiyonel; örnekler bazen bunu ayrı veriyor
 });
 
 // __dirname (ESM)
@@ -99,10 +98,10 @@ server.tool(
 
     const res = await runPython(PY, args);
 
-    // 🧠 Log the results in Node console:
-    console.log("\n✅ Model training finished successfully.");
-    console.log("🎯 Metrics:", JSON.stringify(res.metrics, null, 2));
-    console.log("📊 Confusion matrix:", JSON.stringify(res.confusion_matrix));
+    // 🧠 Log the results in Node console (use stderr to avoid breaking MCP protocol):
+    console.error("\n✅ Model training finished successfully.");
+    console.error("🎯 Metrics:", JSON.stringify(res.metrics, null, 2));
+    console.error("📊 Confusion matrix:", JSON.stringify(res.confusion_matrix));
 
     // Send structured result to client
     return {
@@ -119,6 +118,20 @@ server.tool(
 
 function runPython(pythonCmd, args) {
   return new Promise((resolve, reject) => {
+    // Progress bar state
+    let progressValue = 0;
+    const TOTAL_STEPS = 10; // Her adımı buna bölüyoruz
+
+    function renderProgress() {
+      const percent = Math.min(
+        100,
+        Math.floor((progressValue / TOTAL_STEPS) * 100)
+      );
+      const barLength = Math.floor(percent / 5);
+      const bar = "█".repeat(barLength) + "-".repeat(20 - barLength);
+      process.stdout.write(`\r⏳ Processing: [${bar}] ${percent}%`);
+    }
+
     // ensure unbuffered output: insert '-u' if not present
     const argsWithUnbuffer = args.slice(); // copy
     if (!argsWithUnbuffer.includes("-u")) {
@@ -133,15 +146,24 @@ function runPython(pythonCmd, args) {
     let stderr = "";
 
     py.stdout.on("data", (d) => {
-      stdout += d.toString();
-      // istersen burada anlık loglayabilirsin:
-      // console.log("[PYOUT]", d.toString().trim());
+      const text = d.toString().trim();
+
+      // Progress tetikleyici
+      if (text.startsWith("[STEP]")) {
+        progressValue += 1;
+        renderProgress();
+      }
+
+      console.error("\n[PY LOG]", text);
+      stdout += text + "\n";
     });
 
     py.stderr.on("data", (d) => {
       stderr += d.toString();
       console.error("[PY STDERR]", d.toString().trim());
     });
+
+    // In server.js -> runPython -> py.on("close", ...)
 
     py.on("close", (code) => {
       if (code !== 0) {
@@ -150,7 +172,30 @@ function runPython(pythonCmd, args) {
         );
       }
       try {
-        const parsed = JSON.parse(stdout.trim());
+        // Find ALL JSON-like sections in stdout — non-greedy
+        const matches = stdout.match(/\{[\s\S]*?\}/g);
+
+        if (!matches || matches.length === 0) {
+          throw new Error(
+            "Python script finished, but no JSON object was found."
+          );
+        }
+
+        // ALWAYS take the LAST JSON block — Python prints logs first, JSON last
+        let jsonString = matches[matches.length - 1];
+
+        // Clean any trailing junk around JSON
+        const firstBrace = jsonString.indexOf("{");
+        const lastBrace = jsonString.lastIndexOf("}");
+
+        if (firstBrace === -1 || lastBrace === -1) {
+          throw new Error("Malformed JSON block detected.");
+        }
+
+        jsonString = jsonString.substring(firstBrace, lastBrace + 1);
+
+        // Parse JSON
+        const parsed = JSON.parse(jsonString);
         resolve(parsed);
       } catch (e) {
         reject(
@@ -166,6 +211,99 @@ function runPython(pythonCmd, args) {
     });
   });
 }
+server.tool(
+  "auto_dl_agent",
+  "AI otomatik Deep Learning modeli oluştursun ve eğitsin",
+  {
+    dataset_path: z.string().optional().default("Phishing_Email.csv"),
+    objective: z
+      .string()
+      .optional()
+      .default("Train deep learning models for phishing detection"),
+  },
+  {
+    title: "Auto Deep Learning Generator",
+    readOnlyHint: false,
+  },
+  async ({ dataset_path, objective }) => {
+    console.error("🤖 AutoDL başlatılıyor...");
+
+    const rawPath = dataset_path || "Phishing_Email.csv";
+    let absPath = path.isAbsolute(rawPath)
+      ? rawPath
+      : path.join(__dirname, rawPath);
+    absPath = absPath.replace(/\\/g, "/");
+
+    // Check if exists
+    try {
+      await fs.access(absPath);
+    } catch (e) {
+      return {
+        content: [{ type: "text", text: `Dataset bulunamadı: ${absPath}` }],
+        structuredContent: { error: "dataset_not_found", path: absPath },
+      };
+    }
+
+    // PROMPT YÜKLEME (AutoDL)
+    const autodlPromptTemplate = await fs.readFile(
+      path.join(__dirname, "prompts/autodl_prompt.md"),
+      "utf8"
+    );
+
+    // Placeholder doldur
+    const prompt = autodlPromptTemplate.replaceAll("${absPath}", absPath);
+
+    const result = await model.generateContent(prompt);
+    let code = result.response.text();
+
+    const fenced = code.match(/```python\n([\s\S]*?)```/i);
+    if (fenced) code = fenced[1];
+
+    const filename = `auto_dl_${Date.now()}.py`;
+    const filepath = path.join(__dirname, filename);
+
+    await fs.writeFile(filepath, code, "utf8");
+    console.error("📄 AutoDL script yazıldı:", filename);
+
+    let output;
+    try {
+      output = await runPython(PY, [filepath]);
+    } catch (err) {
+      return {
+        content: [{ type: "text", text: `Python error: ${err.message}` }],
+        structuredContent: { error: err.message },
+      };
+    }
+    //  JSON SONUCU KAYDETME BLOĞU
+
+    const resultsDir = path.join(__dirname, "results_dl");
+    await fs.mkdir(resultsDir, { recursive: true });
+
+    const outFilename = `autodl_${Date.now()}.json`;
+    const outPath = path.join(resultsDir, outFilename);
+
+    try {
+      await fs.writeFile(outPath, JSON.stringify(output, null, 2), "utf8");
+      console.error("📁 AutoDL result saved to:", outPath);
+    } catch (e) {
+      console.warn("⚠️ Failed to save AutoDL result:", e.message);
+    }
+
+    // Response to MCP client
+    return {
+      content: [
+        {
+          type: "text",
+          text: `AutoDL finished. Results saved to ${outPath}`,
+        },
+      ],
+      structuredContent: {
+        ...output,
+        __result_file: outPath,
+      },
+    };
+  }
+);
 
 // --- AI'nın kendi ML algoritmasını yazdığı Tool ---
 server.tool(
@@ -187,52 +325,49 @@ server.tool(
   },
   async ({ dataset_path, objective }) => {
     try {
-      console.log("🤖 AutoML başlatılıyor...");
+      console.error("🤖 AutoML başlatılıyor...");
+      // --- KRİTİK DÜZELTME BAŞLANGICI ---
+
+      // 1. Gelen parametre boşsa varsayılanı kullan
+      const rawPath = dataset_path || "Phishing_Email.csv";
+
+      // 2. Dosya yolunu mutlak (absolute) yola çevir (E:\tez\proje\...)
+      let absoluteDatasetPath = path.isAbsolute(rawPath)
+        ? rawPath
+        : path.join(__dirname, rawPath);
+
+      // 3. Windows ters slash (\) işaretlerini düz slash (/) yap.
+      // Python string içinde "\" karakterini kaçış dizisi sanıp hata verebiliyor.
+      absoluteDatasetPath = absoluteDatasetPath.replace(/\\/g, "/");
+
+      console.error(`📂 Hedef Veri Seti Yolu: ${absoluteDatasetPath}`);
+
+      // 4. Dosya gerçekten diskte var mı kontrol et?
+      try {
+        await fs.access(absoluteDatasetPath);
+      } catch (e) {
+        throw new Error(
+          `Veri seti bulunamadı! Lütfen yolu kontrol et: ${absoluteDatasetPath}`
+        );
+      }
+      // --- KRİTİK DÜZELTME BİTİŞİ ---
+
+      // Prompt içinde artık 'absoluteDatasetPath' kullanıyoruz:
 
       // 1️⃣ Prompt - LLM'e gönderilecek açıklama
       // server.js içinde AutoML prompt kısmını bu şekilde düzenle:
       // (server.js içinde auto_ml_agent başlığında prompt'u bu ile değiştir)
-      const prompt = `
-You are an expert machine learning engineer.
+      // PROMPT YÜKLEME (AutoML)
+      const automlPromptTemplate = await fs.readFile(
+        path.join(__dirname, "prompts/automl_prompt.md"),
+        "utf8"
+      );
 
-Write a complete, standalone Python script that:
-1) MUST load dataset from '${dataset_path}' using pandas.read_csv() with columns:
-   - 'Email Text'
-   - 'Email Type'
-   Labels in file may include variants like 'phishing', 'Phishing Email', 'spam', 'Safe Email', 'ham', 'legitimate', etc.
-2) Convert labels robustly to binary:
-   map phishing/spam variants => 1, ham/safe/legitimate variants => 0.
-   Drop rows with unknown labels or NaNs after mapping.
-3) Split into train/test (80/20) using stratify=y.
-4) Use TF-IDF with max_features=5000.
-5) Try these candidate models and choose the best by cross-validation accuracy (use 5-fold CV):
-   - LogisticRegression
-   - MultinomialNB
-   - RandomForestClassifier
-   - LinearSVC
-   For each model compute cross_val_score(..., cv=5) and pick the model with highest mean CV accuracy.
-6) Retrain the selected (best) model on the full training set and evaluate on the test set.
-7) Additionally, compute and output feature importance/explainability:
-   - If model is linear (LogisticRegression or LinearSVC), return top 15 TF-IDF terms with highest positive weights for the phishing class.
-   - If model is tree-based (RandomForest), return top 15 features by feature_importances_.
-   - If model is MultinomialNB, return top 15 log-probability ratios for phishing vs ham.
-8) Output ONLY a JSON to stdout (no other prints) with these keys:
-   {
-     "model_name": "<chosen model name>",
-     "cv_accuracy_mean": <float>,
-     "cv_accuracy_std": <float>,
-     "accuracy": <test accuracy>,
-     "precision_phishing": <float>,
-     "recall_phishing": <float>,
-     "f1_phishing": <float>,
-     "top_features": [{"term":"click","weight":0.123}, ... up to 15]
-   }
-Rules:
-- Use only pandas, numpy, sklearn.
-- Do NOT simulate or invent data; if file missing raise FileNotFoundError.
-- Output JSON via: print(json.dumps(results), flush=True)
-- Be robust to label variants and NaN values.
-`;
+      // Template değişkenlerini doldur
+      const prompt = automlPromptTemplate
+        .replaceAll("${absoluteDatasetPath}", absoluteDatasetPath)
+        .replaceAll("${dataset_path}", dataset_path)
+        .replaceAll("${objective}", objective);
 
       // 2️⃣ Gemini'den kod üret
       const result = await model.generateContent(prompt);
@@ -251,12 +386,14 @@ Rules:
       const scriptName = `auto_model_${Date.now()}.py`;
       const scriptPath = path.join(__dirname, scriptName);
       await fs.writeFile(scriptPath, code, "utf8");
-      console.log("🧩 Kod dosyaya yazıldı:", scriptName);
+      console.error("🧩 Kod dosyaya yazıldı:", scriptName);
 
       // 5️⃣ Python ile çalıştır
       try {
+        console.error("Running AutoML script:", scriptPath); // ✔ DOĞRU YER
+
         const rawResult = await runPython(PY, [scriptPath]);
-        console.log("✅ AutoML tamamlandı.");
+        console.error("✅ AutoML tamamlandı.");
 
         // 💾 Sonuçları kaydet
         const resultsDir = path.join(__dirname, "results");
@@ -270,7 +407,7 @@ Rules:
             JSON.stringify(rawResult, null, 2),
             "utf8"
           );
-          console.log("🗂 AutoML result saved to", outPath);
+          console.error(" AutoML result saved to", outPath);
         } catch (e) {
           console.warn("⚠️ Failed to write results file:", e.message);
         }

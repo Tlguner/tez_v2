@@ -50,6 +50,7 @@ def train_model(dataset_path, model_type="logistic", max_features=3000, test_siz
     return result
 
 if __name__ == "__main__":
+    
     # Argümanlar: dataset_path, model_type, max_features, test_size
     # Örn: python train_model.py Phishing_Email.csv logistic 3000 0.2
     if len(sys.argv) < 2:
@@ -68,3 +69,5 @@ if __name__ == "__main__":
     except Exception as e:
         print(str(e), file=sys.stderr)
         sys.exit(2)
+
+

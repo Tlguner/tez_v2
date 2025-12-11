@@ -72,7 +72,14 @@ async function handleQuery(tools) {
                 tool.name
               } (Argümanlar: ${JSON.stringify(args)})`
             );
-            return await mcp.callTool({ name: tool.name, arguments: args });
+            return await mcp.callTool(
+              {
+                name: tool.name,
+                arguments: args,
+              },
+              undefined,
+              { timeout: 600000 } // <-- Buraya da eklersek sohbet modu da ölümsüz olur
+            );
           },
         };
         return obj;
@@ -197,7 +204,27 @@ async function handleQuery(tools) {
 async function main() {
   try {
     await mcp.connect(transport);
+
     console.log("✅ Client, MCP server'a bağlandı.");
+
+    // GLOBAL timeout'u 300 saniye yap
+    // MCP timeouts override - DOĞRU ANAHTARLAR
+    const TIMEOUT_MS = 600000; // 10 Dakika (600000 ms)
+
+    // 1. Varsa mevcut ayarları koru, yoksa boş obje oluştur
+    mcp.requestOptions = mcp.requestOptions || {};
+
+    // 2. Timeout'u ZORLA ayarla (if kontrolü yok!)
+    mcp.requestOptions.timeout = TIMEOUT_MS;
+
+    // 3. _timeoutInfo (Internal) ayarlarını da ZORLA
+    if (!mcp._timeoutInfo) {
+      mcp._timeoutInfo = new Map();
+    }
+    mcp._timeoutInfo.set("callTool", { timeout: TIMEOUT_MS });
+    mcp._timeoutInfo.set("tools/call", { timeout: TIMEOUT_MS }); // Her ihtimale karşı
+    // -----------------------------
+
     // Agent'ın kullanabileceği araçları çek
     const [{ tools }] = await Promise.all([mcp.listTools()]);
     console.log(
@@ -212,7 +239,13 @@ async function main() {
         choices: [
           { name: "Agent'a Komut Ver (Query)", value: "Query" },
           { name: "AutoML: AI kendi ML algoritmasını yazsın", value: "AutoML" },
-          { name: "Tools'u Listele/Kullan", value: "Tools" },
+          {
+            name: "AutoDL: AI kendi Deep Learning kodunu yazsın",
+            value: "AutoDL",
+          },
+
+          { name: "Train Model (Manuel)", value: "TrainModel" },
+          { name: "Health Check (Hello Tool)", value: "Hello" },
           { name: "Çıkış", value: "Exit" },
         ],
       });
@@ -221,13 +254,116 @@ async function main() {
         case "Query":
           await handleQuery(tools);
           break;
-        case "Tools":
-          // Tool'ları listeleme mantığını buraya eklenebilir
-          console.log(
-            "Kullanılabilir Tool'lar:",
-            tools.map((t) => t.name)
+        case "TrainModel": {
+          const dataset_path = await input({
+            message: "Dataset yolu:",
+            default: "Phishing_Email.csv",
+          });
+          const model_type = await select({
+            message: "Model Tipi:",
+            choices: [
+              { name: "Logistic Regression", value: "logistic" },
+              { name: "Naive Bayes", value: "naive_bayes" },
+            ],
+            default: "logistic",
+          });
+          const max_features = Number(
+            await input({
+              message: "Max Features:",
+              default: "3000",
+            })
           );
+          const test_size = Number(
+            await input({
+              message: "Test Size (0.1 - 0.9):",
+              default: "0.2",
+            })
+          );
+
+          console.log("\n🚀 Model eğitimi başlatılıyor...");
+          try {
+            const result = await mcp.callTool(
+              {
+                name: "train_phishing_model",
+                arguments: {
+                  dataset_path,
+                  model_type,
+                  max_features,
+                  test_size,
+                },
+              },
+              undefined,
+              { timeout: 600000 }
+            );
+
+            console.log("\n📊 Eğitim Sonucu:");
+            console.log(
+              JSON.stringify(
+                result.structuredContent ?? result.content ?? result,
+                null,
+                2
+              )
+            );
+          } catch (err) {
+            console.error("❌ Eğitim hatası:", err);
+          }
           break;
+        }
+        case "AutoDL": {
+          const dataset_path = await input({
+            message: "Dataset yolu (varsayılan Enter)",
+            initial: "Phishing_Email.csv",
+          });
+
+          const objective = await input({
+            message: "Objective",
+            initial: "Train deep learning models",
+          });
+
+          console.log("\n🚀 AutoDL agent çağrılıyor — LLM DL kodu üretecek...");
+
+          try {
+            const autoRes = await mcp.callTool(
+              {
+                name: "auto_dl_agent",
+                arguments: { dataset_path, objective },
+              },
+              undefined,
+              { timeout: 3600000 } // deep learning daha uzun sürebilir 1 saat
+            );
+
+            console.log("\n--- AutoDL Result ---");
+            console.log(
+              JSON.stringify(autoRes.structuredContent ?? autoRes, null, 2)
+            );
+            console.log("--- end ---\n");
+          } catch (err) {
+            console.error("AutoDL çağrısı başarısız:", err);
+          }
+
+          break;
+        }
+
+        case "Hello": {
+          try {
+            console.log("⏳ Health Check çalıştırılıyor...");
+            const result = await mcp.callTool({
+              name: "hello",
+              arguments: {},
+            });
+            console.log("\n✅ Tool Sonucu:");
+            console.log(
+              JSON.stringify(
+                result.structuredContent ?? result.content ?? result,
+                null,
+                2
+              )
+            );
+          } catch (err) {
+            console.error("❌ Tool hatası:", err);
+          }
+          break;
+        }
         // main() içindeki switch'e ekle:
         case "AutoML": {
           // Kullanıcıdan kısa parametreler alalım (default'ları da kullanabilir)
@@ -246,10 +382,14 @@ async function main() {
           );
 
           try {
-            const autoRes = await mcp.callTool({
-              name: "auto_ml_agent",
-              arguments: { dataset_path, objective },
-            });
+            const autoRes = await mcp.callTool(
+              {
+                name: "auto_ml_agent",
+                arguments: { dataset_path, objective, __timeout: 600000 },
+              },
+              undefined, // 👈 2. Argüman (Schema): Boş geçiyoruz (undefined)
+              { timeout: 600000 } // 👈 3. Argüman (Options): Timeout BURAYA gelmeli!
+            );
 
             console.log("\n--- AutoML Result (structuredContent) ---");
             console.log(
