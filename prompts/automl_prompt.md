@@ -11,32 +11,63 @@ CRITICAL RULES:
 
 # Dataset Requirements
 
-The script MUST load dataset from '${dataset_path}' and expect columns:
+The script MUST load dataset from EXACTLY this path: '${absoluteDatasetPath}'
 
-- 'Email Text'
-- 'Email Type'
-
-Label mapping must be robust:
-
-**Phishing = 1**
-(phishing, phishing email, spam, malicious)
-
-**Safe/Ham = 0**
-(ham, safe, safe email, legitimate, normal, benign)
-
-Unknown labels → DROP.
-
-Dataset must contain at least 10 rows after preprocessing or raise:
-
-ValueError("Dataset invalid or preprocessing removed all rows.")
+Do NOT assume fixed column names like 'Email Text' / 'Email Type'.
+Instead, automatically detect columns.
 
 Automatically detect text column from:
-["Email Text","text","body","message"]
+["text_combined", "Email Text", "text", "body", "message", "content", "email", "mail"]
 
 Automatically detect label column from:
-["Email Type","label","labels","target","Category"]
+["label", "Email Type", "labels", "target", "Category", "class", "y"]
 
----
+If no text column found → raise ValueError("Could not find a text column")
+If no label column found → raise ValueError("Could not find a label column")
+
+# Label Mapping (CRITICAL)
+
+The script MUST choose exactly ONE of the following branches.
+
+## Branch 1 — Numeric labels (preferred)
+
+If the detected label column is numeric OR can be safely coerced to numeric:
+
+- Convert labels using:
+  y_num = pd.to_numeric(df[label_col], errors="coerce")
+- Drop rows where y_num is NaN
+- Keep ONLY rows where y_num ∈ {0, 1}
+- Use:
+  y = y_num.astype(int) (as a 1D pandas Series)
+- Do NOT apply any string-based label mapping
+- If remaining rows < 10 → raise:
+  ValueError("Dataset invalid or preprocessing removed all rows.")
+
+## Branch 2 — String / categorical labels
+
+If the label column is NOT numeric:
+
+- Normalize labels: lowercase + strip whitespace
+- Map labels as follows:
+
+  Phishing → 1:
+  ["phishing", "phishing email", "spam", "malicious"]
+
+  Safe → 0:
+  ["ham", "safe", "safe email", "legitimate", "normal", "benign"]
+
+- Drop rows with unmappable labels
+- Use y as a 1D pandas Series
+- If remaining rows < 10 → raise:
+  ValueError("Dataset invalid or preprocessing removed all rows.")
+
+## Final Sanity Check (MANDATORY)
+
+After label mapping:
+
+- The dataset MUST contain BOTH classes {0, 1}
+- Otherwise raise:
+  ValueError("Dataset mapping failed: need both phishing and safe labels")
 
 # Preprocessing Rules
 
@@ -128,3 +159,67 @@ Output only:
 }
 
 Do not print anything after JSON.
+
+IMPORTANT: Logs must NOT contain "{" or "}" characters. Do not print dicts or JSON in logs.
+
+IMPORTANT:
+The final JSON MUST include:
+
+- One object describing the BEST model
+- An "all_models" array containing metrics for EVERY evaluated model
+  The final JSON must NOT omit evaluated models.
+
+CRITICAL:
+The label vector (y) MUST be a 1-dimensional pandas Series.
+Never use df[[label_col]].
+Always use df[label_col].
+
+CRITICAL OUTPUT RULES:
+
+- The final result MUST be printed between the following markers:
+  <<<JSON_START>>>
+  <<<JSON_END>>>
+
+- Example (MANDATORY):
+
+print("<<<JSON_START>>>")
+print(json.dumps(output, indent=2))
+print("<<<JSON_END>>>")
+
+- Do NOT print any JSON outside these markers.
+- Logs may be printed before <<<JSON_START>>>.
+- Do NOT print anything after <<<JSON_END>>>.
+
+CRITICAL JSON STRUCTURE RULES:
+
+- The final JSON MUST be structured EXACTLY as follows:
+
+{
+"all_models": [
+{
+"model_name": "...",
+"cv_accuracy_mean": ...,
+"cv_accuracy_std": ...,
+"test_accuracy": ...,
+"test_recall_phishing": ...,
+"test_f1_phishing": ...,
+"confusion_matrix": [[tn, fp], [fn, tp]],
+"top_features": [...]
+}
+],
+"best_model": {
+"model_name": "...",
+"cv_accuracy_mean": ...,
+"cv_accuracy_std": ...,
+"test_accuracy": ...,
+"test_recall_phishing": ...,
+"test_f1_phishing": ...,
+"confusion_matrix": [[tn, fp], [fn, tp]],
+"top_features": [...]
+}
+}
+
+- all_models MUST come FIRST.
+- best_model MUST come LAST.
+- best_model MUST be one of the entries in all_models.
+- all_models MUST include FULL metrics for EVERY evaluated model.
