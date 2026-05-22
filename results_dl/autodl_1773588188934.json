@@ -1,0 +1,179 @@
+{
+  "lstm": {
+    "accuracy": 0.9847860346708692,
+    "precision": 0.9830626450116009,
+    "recall": 0.9877608112833663,
+    "f1": 0.9854061282632711,
+    "confusion_matrix": [
+      [
+        7773,
+        146
+      ],
+      [
+        105,
+        8474
+      ]
+    ],
+    "train_accuracy_history": [
+      0.7289069890975952,
+      0.9465807676315308,
+      0.9826292991638184,
+      0.990661084651947,
+      0.9938624501228333,
+      0.9967228770256042
+    ],
+    "validation_accuracy_history": [
+      0.9260494112968445,
+      0.9774965643882751,
+      0.9820427298545837,
+      0.9853765964508057,
+      0.9856038689613342,
+      0.9868919253349304
+    ],
+    "training_time_seconds": 1645.0472631454468
+  },
+  "bilstm": {
+    "accuracy": 0.9858164626015274,
+    "precision": 0.9844421223731569,
+    "recall": 0.9883436297936823,
+    "f1": 0.9863890181479757,
+    "confusion_matrix": [
+      [
+        7785,
+        134
+      ],
+      [
+        100,
+        8479
+      ]
+    ],
+    "train_accuracy_history": [
+      0.9652774930000305,
+      0.9902443885803223,
+      0.9954347610473633,
+      0.9962871670722961
+    ],
+    "validation_accuracy_history": [
+      0.984315812587738,
+      0.985755443572998,
+      0.9845430850982666,
+      0.985755443572998
+    ],
+    "training_time_seconds": 674.1778709888458
+  },
+  "gru": {
+    "accuracy": 0.9866044369014426,
+    "precision": 0.9906081239727635,
+    "recall": 0.983564518009092,
+    "f1": 0.9870737556296426,
+    "confusion_matrix": [
+      [
+        7839,
+        80
+      ],
+      [
+        141,
+        8438
+      ]
+    ],
+    "train_accuracy_history": [
+      0.8551430106163025,
+      0.9878764748573303,
+      0.9949043393135071,
+      0.9976321458816528
+    ],
+    "validation_accuracy_history": [
+      0.9824215769767761,
+      0.9853007793426514,
+      0.9846946597099304,
+      0.9852250218391418
+    ],
+    "training_time_seconds": 830.57191157341
+  },
+  "cnn": {
+    "accuracy": 0.9866650503091284,
+    "precision": 0.9892309493152288,
+    "recall": 0.9850798461359133,
+    "f1": 0.9871510337577386,
+    "confusion_matrix": [
+      [
+        7827,
+        92
+      ],
+      [
+        128,
+        8451
+      ]
+    ],
+    "train_accuracy_history": [
+      0.9659215807914734,
+      0.9938246011734009,
+      0.9985792636871338,
+      0.9996401071548462
+    ],
+    "validation_accuracy_history": [
+      0.9848461747169495,
+      0.9872707724571228,
+      0.9872707724571228,
+      0.9875738620758057
+    ],
+    "training_time_seconds": 209.32107973098755
+  },
+  "hybrid": {
+    "accuracy": 0.9875742514244151,
+    "precision": 0.9874272409778813,
+    "recall": 0.9886933208998718,
+    "f1": 0.9880598753567477,
+    "confusion_matrix": [
+      [
+        7811,
+        108
+      ],
+      [
+        97,
+        8482
+      ]
+    ],
+    "train_accuracy_history": [
+      0.9661110043525696,
+      0.9948664307594299,
+      0.9979730844497681
+    ],
+    "validation_accuracy_history": [
+      0.987801194190979,
+      0.984315812587738,
+      0.9875738620758057
+    ],
+    "training_time_seconds": 170.45000648498535
+  },
+  "auto_model": {
+    "accuracy": 0.9850284883016123,
+    "precision": 0.9904638568401224,
+    "recall": 0.9806504254575126,
+    "f1": 0.9855327124699819,
+    "confusion_matrix": [
+      [
+        7838,
+        81
+      ],
+      [
+        166,
+        8413
+      ]
+    ],
+    "train_accuracy_history": [
+      0.9315211176872253,
+      0.9909073710441589,
+      0.9959083199501038,
+      0.9972911477088928
+    ],
+    "validation_accuracy_history": [
+      0.9799969792366028,
+      0.9866646528244019,
+      0.982724666595459,
+      0.9858312010765076
+    ],
+    "training_time_seconds": 536.4107708930969,
+    "description": "Sequential model combining two Conv1D layers with MaxPooling, followed by a GRU layer to capture sequential dependencies. A Dense hidden layer with Dropout is used before the final sigmoid output. This architecture leverages both local feature extraction (CNN) and sequence understanding (GRU)."
+  }
+}

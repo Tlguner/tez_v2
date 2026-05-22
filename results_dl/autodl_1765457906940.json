@@ -1,0 +1,30 @@
+{
+  "accuracy": 0.9645827743493426,
+  "precision": 0.9257362355953905,
+  "recall": 0.9890560875512996,
+  "f1": 0.9563492063492064,
+  "confusion_matrix": [
+    [
+      2149,
+      116
+    ],
+    [
+      16,
+      1446
+    ]
+  ],
+  "train_accuracy_history": [
+    0.9074239730834961,
+    0.9762223958969116,
+    0.9821109175682068,
+    0.9863595962524414
+  ],
+  "val_accuracy_history": [
+    0.9698188900947571,
+    0.9590878486633301,
+    0.975184440612793,
+    0.9704896211624146
+  ],
+  "training_time": 558.0667209625244,
+  "description": "A hybrid model featuring an Embedding layer, followed by a Conv1D for local feature extraction. The Conv1D output is then processed by a Bidirectional GRU to capture sequential dependencies. A MultiHeadAttention layer performs self-attention on the GRU's output, allowing the model to weigh different parts of the sequence. A residual connection and LayerNormalization are applied after attention. Finally, GlobalAveragePooling1D is used before a Dense classifier layer."
+}

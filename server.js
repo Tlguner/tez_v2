@@ -11,6 +11,80 @@ import fsSync from "fs"; // veya promises ile kullan
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
+import { execSync } from "child_process";
+
+function applyPatchToFile(filePath, patchText) {
+  try {
+    const patchFile = filePath + ".patch";
+    fsSync.writeFileSync(patchFile, patchText, "utf8");
+
+    const out = execSync(`patch "${filePath}" "${patchFile}"`, {
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    if (out?.length) console.error(out.toString());
+
+    fsSync.unlinkSync(patchFile);
+    console.error("🩹 Patch applied successfully.");
+  } catch (err) {
+    console.error("❌ Failed to apply patch:", err.message);
+  }
+}
+
+async function runPythonSelfHealing(pythonCmd, args, scriptPath, mode = "Auto") {
+  let attempt = 1;
+  const maxAttempts = 3;
+
+  while (attempt <= maxAttempts) {
+    try {
+      console.error(`▶ [Attempt ${attempt}/${maxAttempts}] Running Python script (${mode})...`);
+      const result = await runPython(pythonCmd, args);
+      return { ok: true, result }; // Başarılıysa anında dön
+    } catch (err) {
+      const errorText = err.toString();
+      console.error(`❌ Python execution failed (Attempt ${attempt}):\n${errorText}`);
+
+      if (attempt === 1) {
+        // LEVEL 1 — PATCH MODE
+        console.error("🔧 Healing Level 1: Generating small unified patch...");
+        const prompt = `Python script crashed with:\n${errorText}\n\nTASK:\n- Fix the script using a SMALL unified diff patch.\n- NO full rewrite.\n- Return ONLY the patch text.\n- NO markdown fences.\n\nScript content:\n${fsSync.readFileSync(scriptPath, "utf8")}`;
+        const res = await model.generateContent(prompt);
+        let patch = res.response?.text()?.trim() || "";
+        const fenced = patch.match(/```(?:diff)?\n([\s\S]*?)```/i);
+        if (fenced) patch = fenced[1];
+        
+        if (patch && patch.length > 0) {
+          applyPatchToFile(scriptPath, patch);
+        } else {
+          console.error("⚠️ AI returned empty patch. Moving to next strategy.");
+        }
+      } 
+      else if (attempt === 2) {
+        // LEVEL 2 — FULL REWRITE MODE
+        console.error("🔥 Healing Level 2: Performing FULL script rewrite...");
+        const rewritePrompt = `Rewrite the ENTIRE Python script so that it fixes the error:\n${errorText}\n\nRULES:\n- Output ONLY Python code (NO MARKDOWN).\n- KEEP original behaviour.\n- Keep dataset path unchanged.\n- Ensure JSON printing at end.\n\nOriginal script:\n${fsSync.readFileSync(scriptPath, "utf8")}`;
+        const res = await model.generateContent(rewritePrompt);
+        let newScript = res.response?.text()?.trim() || "";
+        const fenced = newScript.match(/```(?:python)?\n([\s\S]*?)```/i);
+        if (fenced) newScript = fenced[1];
+        
+        if (newScript && newScript.length > 0) {
+          fsSync.writeFileSync(scriptPath, newScript, "utf8");
+          console.error("🆕 Script rewritten successfully.");
+        }
+      } 
+      else {
+        // LEVEL 3 — EXIT (Pes Et)
+        return { ok: false, error: `Self-healing failed after ${maxAttempts} attempts.` };
+      }
+      
+      attempt++; // Yeni koda geç ve bir sonraki döngüde dene
+    }
+  }
+  return { ok: false, error: "Self-healing failed unexpectedly." };
+}
+
+export { runPythonSelfHealing };
+
 const server = new McpServer({
   name: "phishing-ml-server",
   version: "1.0.0",
@@ -129,7 +203,7 @@ function runPython(pythonCmd, args) {
       );
       const barLength = Math.floor(percent / 5);
       const bar = "█".repeat(barLength) + "-".repeat(20 - barLength);
-      process.stdout.write(`\r⏳ Processing: [${bar}] ${percent}%`);
+      process.stderr.write(`\r⏳ Processing: [${bar}] ${percent}%`);
     }
 
     // ensure unbuffered output: insert '-u' if not present
@@ -171,30 +245,24 @@ function runPython(pythonCmd, args) {
           new Error(`Python exited with code ${code}. Stderr:\n${stderr}`)
         );
       }
-      try {
-        // Find ALL JSON-like sections in stdout — non-greedy
-        const matches = stdout.match(/\{[\s\S]*?\}/g);
 
-        if (!matches || matches.length === 0) {
+      try {
+        const START = "<<<JSON_START>>>";
+        const END = "<<<JSON_END>>>";
+
+        const startIndex = stdout.indexOf(START);
+        const endIndex = stdout.indexOf(END);
+
+        if (startIndex === -1 || endIndex === -1) {
           throw new Error(
-            "Python script finished, but no JSON object was found."
+            "JSON markers not found in Python output. Ensure Python prints <<<JSON_START>>> and <<<JSON_END>>>."
           );
         }
 
-        // ALWAYS take the LAST JSON block — Python prints logs first, JSON last
-        let jsonString = matches[matches.length - 1];
+        const jsonString = stdout
+          .substring(startIndex + START.length, endIndex)
+          .trim();
 
-        // Clean any trailing junk around JSON
-        const firstBrace = jsonString.indexOf("{");
-        const lastBrace = jsonString.lastIndexOf("}");
-
-        if (firstBrace === -1 || lastBrace === -1) {
-          throw new Error("Malformed JSON block detected.");
-        }
-
-        jsonString = jsonString.substring(firstBrace, lastBrace + 1);
-
-        // Parse JSON
         const parsed = JSON.parse(jsonString);
         resolve(parsed);
       } catch (e) {
@@ -266,15 +334,25 @@ server.tool(
     console.error("📄 AutoDL script yazıldı:", filename);
 
     let output;
-    try {
-      output = await runPython(PY, [filepath]);
-    } catch (err) {
+
+    const heal = await runPythonSelfHealing(PY, [filepath], filepath, "AutoDL");
+
+    if (!heal.ok) {
+      console.error("❌ AutoDL Self-Healing failed.");
       return {
-        content: [{ type: "text", text: `Python error: ${err.message}` }],
-        structuredContent: { error: err.message },
+        content: [
+          {
+            type: "text",
+            text: `AutoDL failed even after self-healing: ${heal.error}`,
+          },
+        ],
+        structuredContent: { error: heal.error },
       };
     }
-    //  JSON SONUCU KAYDETME BLOĞU
+
+    const fullResults = heal.result;
+    console.error("🤖 AutoDL successful after self-healing (if needed).");
+    // JSON SONUCU KAYDETME BLOĞU
 
     const resultsDir = path.join(__dirname, "results_dl");
     await fs.mkdir(resultsDir, { recursive: true });
@@ -283,7 +361,7 @@ server.tool(
     const outPath = path.join(resultsDir, outFilename);
 
     try {
-      await fs.writeFile(outPath, JSON.stringify(output, null, 2), "utf8");
+      await fs.writeFile(outPath, JSON.stringify(fullResults, null, 2), "utf8");
       console.error("📁 AutoDL result saved to:", outPath);
     } catch (e) {
       console.warn("⚠️ Failed to save AutoDL result:", e.message);
@@ -298,7 +376,7 @@ server.tool(
         },
       ],
       structuredContent: {
-        ...output,
+        ...fullResults,
         __result_file: outPath,
       },
     };
@@ -392,7 +470,14 @@ server.tool(
       try {
         console.error("Running AutoML script:", scriptPath); // ✔ DOĞRU YER
 
-        const rawResult = await runPython(PY, [scriptPath]);
+        const heal = await runPythonSelfHealing(PY, [scriptPath], scriptPath, "AutoML");        if (!heal.ok) {
+          return {
+            content: [{ type: "text", text: heal.error }],
+            structuredContent: { error: heal.error },
+          };
+        }
+
+        const rawResult = heal.result;
         console.error("✅ AutoML tamamlandı.");
 
         // 💾 Sonuçları kaydet

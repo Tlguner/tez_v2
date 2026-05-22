@@ -41,6 +41,8 @@ async function safeShutdown(code = 0) {
   setTimeout(() => process.exit(code), 500);
 }
 
+const TIMEOUT_MS = 24 * 60 * 60 * 1000; // 86400000
+
 // --- Fonksiyonlar ---
 
 // 3. LLM'in Aracı (Tool) Kullanma Mantığı
@@ -78,7 +80,7 @@ async function handleQuery(tools) {
                 arguments: args,
               },
               undefined,
-              { timeout: 600000 } // <-- Buraya da eklersek sohbet modu da ölümsüz olur
+              { timeout: 7200000 } // <-- Buraya da eklersek sohbet modu da ölümsüz olur
             );
           },
         };
@@ -315,21 +317,16 @@ async function main() {
             initial: "Phishing_Email.csv",
           });
 
-          const objective = await input({
-            message: "Objective",
-            initial: "Train deep learning models",
-          });
-
           console.log("\n🚀 AutoDL agent çağrılıyor — LLM DL kodu üretecek...");
 
           try {
             const autoRes = await mcp.callTool(
               {
                 name: "auto_dl_agent",
-                arguments: { dataset_path, objective },
+                arguments: { dataset_path },
               },
               undefined,
-              { timeout: 3600000 } // deep learning daha uzun sürebilir 1 saat
+              { timeout: 7200000 } // deep learning daha uzun sürebilir 2 saat
             );
 
             console.log("\n--- AutoDL Result ---");
@@ -372,11 +369,6 @@ async function main() {
             initial: "Phishing_Email.csv",
           });
 
-          const objective = await input({
-            message: "Objective (ör. 'Maximize F1 score for phishing class')",
-            initial: "Detect phishing emails with high F1 score",
-          });
-
           console.log(
             "\n🚀 AutoML agent çağrılıyor — LLM kod üretecek ve modeli eğitecek. Bu biraz sürebilir..."
           );
@@ -385,10 +377,10 @@ async function main() {
             const autoRes = await mcp.callTool(
               {
                 name: "auto_ml_agent",
-                arguments: { dataset_path, objective, __timeout: 600000 },
+                arguments: { dataset_path },
               },
               undefined, // 👈 2. Argüman (Schema): Boş geçiyoruz (undefined)
-              { timeout: 600000 } // 👈 3. Argüman (Options): Timeout BURAYA gelmeli!
+              { timeout: 7200000 } // 👈 3. Argüman (Options): Timeout BURAYA gelmeli!
             );
 
             console.log("\n--- AutoML Result (structuredContent) ---");

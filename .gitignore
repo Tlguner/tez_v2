@@ -39,3 +39,4 @@ auto_model_*.py
 # Build outputs
 /dist/
 /build/
+test_dataset/

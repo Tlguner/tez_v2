@@ -1,0 +1,3 @@
+{
+  "error": "Layers added to a Sequential model can only have a single positional argument, the input tensor. Layer MultiHeadAttention has multiple positional arguments: [<Parameter \"query\">, <Parameter \"value\">]"
+}

@@ -153,6 +153,7 @@ Output only:
 "test_accuracy": ...,
 "test_recall_phishing": ...,
 "test_f1_phishing": ...,
+"time_s": ...,
 "confusion_matrix": [[tn, fp], [fn, tp]]
 }
 ]
@@ -203,6 +204,7 @@ CRITICAL JSON STRUCTURE RULES:
 "test_accuracy": ...,
 "test_recall_phishing": ...,
 "test_f1_phishing": ...,
+"time_s": ...,
 "confusion_matrix": [[tn, fp], [fn, tp]],
 "top_features": [...]
 }
@@ -214,6 +216,7 @@ CRITICAL JSON STRUCTURE RULES:
 "test_accuracy": ...,
 "test_recall_phishing": ...,
 "test_f1_phishing": ...,
+"time_s": ...,
 "confusion_matrix": [[tn, fp], [fn, tp]],
 "top_features": [...]
 }

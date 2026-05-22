@@ -1,0 +1,21 @@
+--- a/script.py
++++ b/script.py
+@@ -122,7 +122,15 @@
+     X, y = load_and_preprocess_data(DATASET_PATH)
+ except (FileNotFoundError, ValueError) as e:
+     print(f"Error during data loading: {e}")
+-    exit() # Exit if critical data loading fails
++    # If data loading fails, print an error JSON before exiting
++    error_output = {
++        "status": "error",
++        "message": f"Script failed during data loading: {type(e).__name__}: {e}",
++        "details": str(e),
++        "stage": "data_loading_and_preprocessing"
++    }
++    print("<<<JSON_START>>>")
++    print(json.dumps(error_output, indent=2))
++    print("<<<JSON_END>>>")
++    exit(1) # Exit with an error code
+ 
+ # --- Train/Test Split ---
+ print("\n--- Step 2: Performing Train/Test Split ---")
