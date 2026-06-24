@@ -86,34 +86,68 @@ max_features = 5000
 
 ---
 
-# Model Candidates (mandatory)
+# Hyperparameter Optimization & Pruning (OPTUNA - MANDATORY)
 
-Evaluate these with 5-fold CV:
+You MUST use `optuna` for finding the best hyperparameters for the classifiers.
 
-- LogisticRegression
-- MultinomialNB
-- RandomForestClassifier
-- LinearSVC
+Requirements:
+1. **Dynamic Search Spaces**:
+   - For `LogisticRegression`: Optimize regularization parameter `C` (loguniform: 1e-4 to 10) and `solver` (e.g., `liblinear`, `lbfgs`).
+   - For `RandomForestClassifier`: Optimize `n_estimators` (int: 50 to 200), `max_depth` (int: 5 to 20 or None), and `min_samples_split` (int: 2 to 10).
+   - For `LinearSVC`: Optimize regularization `C` (loguniform: 1e-4 to 10).
+
+2. **Bayesian Optimization via 5-Fold Cross Validation**:
+   - During Optuna optimization trials, the objective function to maximize MUST be the **mean 5-fold Cross Validation Accuracy** on the training split.
+   - Use `optuna.create_study(direction="optimize", pruner=optuna.pruners.HyperbandPruner())` for each classifier class.
+   - Run at least 10 trials per classifier class to find the best hyperparameters.
+   - Log trial progress (trial number, CV score, parameters) to stderr.
+   - Extract the best parameters and train the final baseline models on the full training set.
 
 ---
 
-# Additional Model ("auto_model")
+# Model Candidates (mandatory)
 
-After evaluating mandatory models, you MUST add one more:
+Train and evaluate the optimized versions of these classifiers using 5-fold CV:
 
-- Choose any sklearn classifier
-- Choose hyperparameters yourself
-- Train & evaluate with same CV procedure
+- LogisticRegression (Optimized via Optuna)
+- MultinomialNB (Baseline with 5-fold CV)
+- RandomForestClassifier (Optimized via Optuna)
+- LinearSVC (Optimized via Optuna)
+
+---
+
+# ML Hybrid Model (Mandatory Ensemble)
+
+After individual classifiers, create and train a **Hybrid ML** model named:
+"hybrid"
+
+Requirements:
+- It must be a `VotingClassifier` (with soft or hard voting) or a `StackingClassifier` from `sklearn.ensemble`.
+- It must combine at least 3 of the best performing optimized classifiers from the candidate list (using their Optuna-optimized hyperparameter sets).
+- It must be trained and evaluated using the same 5-fold CV and test protocols.
+
+---
+
+# Additional ML Model ("auto_model")
+
+After evaluating the hybrid model, you MUST add exactly one more:
+"auto_model"
+
+Requirements:
+- Choose any custom/advanced classifier (e.g., optimized XGBoost, LightGBM, or GradientBoostingClassifier).
+- Use Optuna to optimize its hyperparameters (at least 10 trials) based on 5-fold CV.
+- Train & evaluate with the same 5-fold CV and test procedure.
 
 ---
 
 # Feature Importance (mandatory)
 
-If chosen model is:
+If chosen best model is:
 
 - LogisticRegression / LinearSVC → top 15 positive TF-IDF weights
-- RandomForestClassifier → top 15 feature*importances*
+- RandomForestClassifier / GradientBoostingClassifier / ExtraTreesClassifier → top 15 feature_importances_
 - MultinomialNB → top 15 log-probability ratios
+- VotingClassifier / StackingClassifier (Hybrid) → top 15 features of its best constituent estimator or computed overall importances if available.
 
 ---
 
@@ -196,6 +230,12 @@ CRITICAL JSON STRUCTURE RULES:
 - The final JSON MUST be structured EXACTLY as follows:
 
 {
+"optuna_statistics": {
+  "total_trials": ...,
+  "pruned_trials": ...,
+  "optimization_time_seconds": ...,
+  "pruning_ratio": ...  # (pruned_trials / total_trials)
+},
 "all_models": [
 {
 "model_name": "...",
@@ -206,7 +246,14 @@ CRITICAL JSON STRUCTURE RULES:
 "test_f1_phishing": ...,
 "time_s": ...,
 "confusion_matrix": [[tn, fp], [fn, tp]],
-"top_features": [...]
+"fpr": [list_of_false_positive_rates],
+"tpr": [list_of_true_positive_rates],
+"top_features": [...],
+"optuna_gain": {
+  "baseline_accuracy": ...,
+  "optimized_accuracy": ...,
+  "gain": ...  # (optimized_accuracy - baseline_accuracy)
+}
 }
 ],
 "best_model": {
@@ -218,11 +265,19 @@ CRITICAL JSON STRUCTURE RULES:
 "test_f1_phishing": ...,
 "time_s": ...,
 "confusion_matrix": [[tn, fp], [fn, tp]],
-"top_features": [...]
+"fpr": [list_of_false_positive_rates],
+"tpr": [list_of_true_positive_rates],
+"top_features": [...],
+"optuna_gain": {
+  "baseline_accuracy": ...,
+  "optimized_accuracy": ...,
+  "gain": ...
+}
 }
 }
 
-- all_models MUST come FIRST.
+- optuna_statistics MUST come FIRST.
+- all_models MUST come SECOND.
 - best_model MUST come LAST.
 - best_model MUST be one of the entries in all_models.
 - all_models MUST include FULL metrics for EVERY evaluated model.

@@ -74,15 +74,32 @@ Use stratified 80/20 split.
 
 ---
 
+# Deep Learning Hyperparameter Optimization & Pruning (OPTUNA - MANDATORY)
+
+You MUST use `optuna` to optimize the hyperparameter configuration for the deep learning models.
+
+Requirements:
+1. **Search Space for DL Architectures**:
+   - Embedding Dimension: `embedding_dim` (int: 32 to 128)
+   - Hidden Units: `units` (int: 32 to 128)
+   - Dropout Rate: `dropout_rate` (float: 0.1 to 0.5)
+   - Learning Rate: `learning_rate` (loguniform: 1e-4 to 1e-2)
+
+2. **Bayesian Optimization & Early Pruning (Keras Integration)**:
+   - For each DL architecture class (LSTM, BiLSTM, GRU, CNN, etc.), run an Optuna study with at least 5 trials to select the best hyperparameter set.
+   - Use `optuna.integration.TFKerasPruningCallback` (or a custom pruning callback checking epoch loss/accuracy against previous trials) passed to Keras `fit()` callback list.
+   - If a trial yields poor validation accuracy (e.g., lower than 60%) within the first 3 epochs, prune the trial immediately to save execution time.
+
+---
+
 # Deep Learning Models to Train (Mandatory)
 
-Train ALL of the following models:
-
-1. LSTM
-2. BiLSTM
-3. GRU
-4. 1D CNN
-5. Hybrid CNN + Dense
+Train optimized versions of ALL of the following models using their best Optuna configuration. Keep architectures aligned with these definitions:
+1. LSTM: Embedding -> LSTM -> Dense(1, activation='sigmoid')
+2. BiLSTM: Embedding -> Bidirectional(LSTM) -> Dense(1, activation='sigmoid')
+3. GRU: Embedding -> GRU -> Dense(1, activation='sigmoid')
+4. 1D CNN: Embedding -> Conv1D -> GlobalMaxPooling1D -> Dropout -> Dense(1, activation='sigmoid')
+5. Hybrid CNN + Dense: Embedding -> Conv1D -> GlobalMaxPooling1D -> Dense(dense_units) -> Dropout -> Dense(1, activation='sigmoid')
 
 Each model must be trained and evaluated independently.
 
@@ -96,10 +113,9 @@ After all mandatory models, create and train **exactly one** additional model na
 
 Requirements:
 
-- Architecture must be fully designed by the AI
-- May use Attention, CNN–RNN hybrid, multi-branch CNN, etc.
-- Must be different from the mandatory models
-- Must be evaluated with the same metrics
+- Architecture must be fully designed by the AI (e.g. customized Attention or multi-branch CNN).
+- Hyperparameters must be optimized via Optuna (at least 5 trials).
+- Must be evaluated with the same metrics.
 
 ---
 
@@ -126,13 +142,15 @@ from tensorflow.keras.layers import (
 LSTM, GRU, Bidirectional, Conv1D, MaxPooling1D,
 GlobalMaxPooling1D, Dense, Dropout, Embedding
 )
+import optuna
+from optuna.integration import TFKerasPruningCallback
 
 ---
 
 # HARD RULES
 
 - DO NOT use BERT, DistilBERT, Transformers, or HuggingFace models
-- Use ONLY: pandas, numpy, sklearn, tensorflow
+- Use ONLY: pandas, numpy, sklearn, tensorflow, optuna
 - Do NOT generate fake data
 - If dataset file does not exist → raise FileNotFoundError
 - Training logs (epochs, loss, accuracy) MAY be printed.
@@ -143,18 +161,52 @@ GlobalMaxPooling1D, Dense, Dropout, Embedding
 
 # Final Output (ONLY JSON)
 
-At the very end print EXACTLY one JSON object:
+At the very end print EXACTLY one JSON object structured as follows:
 
 {
-"lstm": {...},
-"bilstm": {...},
-"gru": {...},
-"cnn": {...},
-"hybrid": {...},
-"auto_model": {
-"description": "short description of architecture",
-...
-}
+  "optuna_statistics": {
+    "total_trials": ...,
+    "pruned_trials": ...,
+    "optimization_time_seconds": ...,
+    "pruning_ratio": ...  # (pruned_trials / total_trials)
+  },
+  "results": {
+    "lstm": {
+      "accuracy": ...,
+      "precision": ...,
+      "recall": ...,
+      "f1": ...,
+      "confusion_matrix": [[tn, fp], [fn, tp]],
+      "train_accuracy_history": [...],
+      "validation_accuracy_history": [...],
+      "time_s": ...,
+      "optuna_gain": {
+        "baseline_accuracy": ...,
+        "optimized_accuracy": ...,
+        "gain": ...
+      }
+    },
+    "bilstm": { ... },
+    "gru": { ... },
+    "cnn": { ... },
+    "hybrid": { ... },
+    "auto_model": {
+      "description": "short description of architecture",
+      "accuracy": ...,
+      "precision": ...,
+      "recall": ...,
+      "f1": ...,
+      "confusion_matrix": [[tn, fp], [fn, tp]],
+      "train_accuracy_history": [...],
+      "validation_accuracy_history": [...],
+      "time_s": ...,
+      "optuna_gain": {
+        "baseline_accuracy": ...,
+        "optimized_accuracy": ...,
+        "gain": ...
+      }
+    }
+  }
 }
 
 Use:
@@ -164,10 +216,12 @@ print("<<<JSON_END>>>")
 
 CRITICAL TRAINING LIMITS:
 
-- Each model MUST train for at most 10 epochs
+- Each Optuna trial model training MUST run for at most 5 epochs (to keep search fast).
+- Final retrained models (with the best hyperparameters found) MUST train for at most 10 epochs.
 - Use EarlyStopping with:
   monitor="val_loss"
   patience=2
   restore_best_weights=True
   - Do NOT use MultiHeadAttention.
 - Use ONLY Sequential API.
+

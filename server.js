@@ -30,9 +30,52 @@ function applyPatchToFile(filePath, patchText) {
   }
 }
 
+// --- Gemini bağlantısı (.env içinde GEMINI_API_KEY olmalı) ---
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+async function generateContentWithRetry(model, prompt, retries = 10, delayMs = 5000) {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      return await model.generateContent(prompt);
+    } catch (err) {
+      const errMsg = err.toString();
+      const isRateLimit = errMsg.includes("429") || errMsg.includes("Quota") || errMsg.includes("Too Many Requests");
+      const isUnavailable = errMsg.includes("503") || errMsg.includes("UNAVAILABLE") || errMsg.includes("high demand");
+
+      // Detect DAILY quota (RPD) exhaustion — retrying won't help until tomorrow
+      const isDailyQuota =
+        errMsg.includes("GenerateRequestsPerDayPerProjectPerModel") ||
+        errMsg.includes("Per day") ||
+        (errMsg.includes("429") && errMsg.includes("limit: 20"));
+
+      if (isDailyQuota) {
+        console.error("\n🚫 [GÜNLÜK KOTA DOLDU] Gemini API günlük ücretsiz istek limiti (20 RPD) aşıldı.");
+        console.error("⏰ Kota UTC gece yarısında sıfırlanır. Lütfen yarın tekrar deneyin.");
+        throw err;
+      }
+
+      if ((isRateLimit || isUnavailable) && attempt < retries) {
+        let waitTimeMs = delayMs * attempt;
+        const match = errMsg.match(/retry in ([\d\.]+)s/i);
+        if (match) {
+          waitTimeMs = Math.ceil(parseFloat(match[1]) * 1000) + 2000;
+        } else if (isUnavailable) {
+          waitTimeMs = 15000;
+        }
+        console.error(`\n⏳ [Server Gemini API] Geçici limit veya yoğunluk hatası alındı (Deneme ${attempt}/${retries}).`);
+        console.error(`⚠️ ${Math.round(waitTimeMs / 1000)} saniye beklendikten sonra otomatik olarak tekrar denenecektir...`);
+        await new Promise((resolve) => setTimeout(resolve, waitTimeMs));
+        continue;
+      }
+      throw err;
+    }
+  }
+}
+
 async function runPythonSelfHealing(pythonCmd, args, scriptPath, mode = "Auto") {
   let attempt = 1;
-  const maxAttempts = 3;
+  const maxAttempts = 3; // Allows running the patched code and trying multiple self-healing loops if needed
 
   while (attempt <= maxAttempts) {
     try {
@@ -47,7 +90,7 @@ async function runPythonSelfHealing(pythonCmd, args, scriptPath, mode = "Auto") 
         // LEVEL 1 — PATCH MODE
         console.error("🔧 Healing Level 1: Generating small unified patch...");
         const prompt = `Python script crashed with:\n${errorText}\n\nTASK:\n- Fix the script using a SMALL unified diff patch.\n- NO full rewrite.\n- Return ONLY the patch text.\n- NO markdown fences.\n\nScript content:\n${fsSync.readFileSync(scriptPath, "utf8")}`;
-        const res = await model.generateContent(prompt);
+        const res = await generateContentWithRetry(model, prompt);
         let patch = res.response?.text()?.trim() || "";
         const fenced = patch.match(/```(?:diff)?\n([\s\S]*?)```/i);
         if (fenced) patch = fenced[1];
@@ -62,7 +105,7 @@ async function runPythonSelfHealing(pythonCmd, args, scriptPath, mode = "Auto") 
         // LEVEL 2 — FULL REWRITE MODE
         console.error("🔥 Healing Level 2: Performing FULL script rewrite...");
         const rewritePrompt = `Rewrite the ENTIRE Python script so that it fixes the error:\n${errorText}\n\nRULES:\n- Output ONLY Python code (NO MARKDOWN).\n- KEEP original behaviour.\n- Keep dataset path unchanged.\n- Ensure JSON printing at end.\n\nOriginal script:\n${fsSync.readFileSync(scriptPath, "utf8")}`;
-        const res = await model.generateContent(rewritePrompt);
+        const res = await generateContentWithRetry(model, rewritePrompt);
         let newScript = res.response?.text()?.trim() || "";
         const fenced = newScript.match(/```(?:python)?\n([\s\S]*?)```/i);
         if (fenced) newScript = fenced[1];
@@ -119,10 +162,7 @@ server.tool(
 );
 
 // -- Python yolu: .env -> PYTHON_PATH, yoksa Conda fallback --
-const PY = process.env.PYTHON_PATH || "D:\\\\Conda\\\\python.exe";
-// --- Gemini bağlantısı (.env içinde GEMINI_API_KEY olmalı) ---
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+const PY = process.env.PYTHON_PATH || "python";
 
 // -- ML eğitim aracı --
 server.tool(
@@ -253,15 +293,23 @@ function runPython(pythonCmd, args) {
         const startIndex = stdout.indexOf(START);
         const endIndex = stdout.indexOf(END);
 
-        if (startIndex === -1 || endIndex === -1) {
-          throw new Error(
-            "JSON markers not found in Python output. Ensure Python prints <<<JSON_START>>> and <<<JSON_END>>>."
-          );
+        let jsonString = "";
+        if (startIndex !== -1 && endIndex !== -1) {
+          jsonString = stdout
+            .substring(startIndex + START.length, endIndex)
+            .trim();
+        } else {
+          // Fallback: search for first '{' and last '}' in stdout
+          const firstBrace = stdout.indexOf("{");
+          const lastBrace = stdout.lastIndexOf("}");
+          if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+            jsonString = stdout.substring(firstBrace, lastBrace + 1).trim();
+          } else {
+            throw new Error(
+              "JSON markers not found in Python output, and no fallback JSON object found. Ensure Python prints <<<JSON_START>>> and <<<JSON_END>>>."
+            );
+          }
         }
-
-        const jsonString = stdout
-          .substring(startIndex + START.length, endIndex)
-          .trim();
 
         const parsed = JSON.parse(jsonString);
         resolve(parsed);
@@ -321,7 +369,7 @@ server.tool(
     // Placeholder doldur
     const prompt = autodlPromptTemplate.replaceAll("${absPath}", absPath);
 
-    const result = await model.generateContent(prompt);
+    const result = await generateContentWithRetry(model, prompt);
     let code = result.response.text();
 
     const fenced = code.match(/```python\n([\s\S]*?)```/i);
@@ -448,7 +496,7 @@ server.tool(
         .replaceAll("${objective}", objective);
 
       // 2️⃣ Gemini'den kod üret
-      const result = await model.generateContent(prompt);
+      const result = await generateContentWithRetry(model, prompt);
       const llmCode = result.response.text();
 
       if (!llmCode || llmCode.trim().length === 0) {
@@ -533,11 +581,212 @@ server.tool(
   }
 );
 
+// ==========================================
+// 🛠 OTONOM VE MODÜLER PIPELINE TOOL'LARI 🛠
+// ==========================================
+
+// 1. Veri seti Keşif Analizi (EDA) Aracı
+server.tool(
+  "analyze_dataset_tool",
+  "Veri setinden 10 satır örnek çeker ve temel istatistikleri döner",
+  {
+    dataset_path: z.string().optional().default("Phishing_Email.csv"),
+  },
+  { title: "Dataset Explorer (EDA)" },
+  async ({ dataset_path }) => {
+    console.error("🔍 analyze_dataset_tool çalıştırılıyor...");
+    const rawPath = dataset_path || "Phishing_Email.csv";
+    let absPath = path.isAbsolute(rawPath) ? rawPath : path.join(__dirname, rawPath);
+    absPath = absPath.replace(/\\/g, "/");
+
+    const edaScript = `
+import pandas as pd
+import json
+import sys
+
+try:
+    df = pd.read_csv("${absPath}")
+    summary = {
+        "total_rows": len(df),
+        "columns": list(df.columns),
+        "missing_values": df.isnull().sum().to_dict(),
+        "target_distribution": df.iloc[:, -1].value_counts().to_dict() if len(df.columns) > 0 else {},
+        "sample_data": df.head(10).to_dict(orient="records")
+    }
+    print("<<<JSON_START>>>")
+    print(json.dumps(summary, indent=2))
+    print("<<<JSON_END>>>")
+except Exception as e:
+    print(f"Error: {str(e)}", file=sys.stderr)
+    sys.exit(1)
+`;
+
+    const scriptPath = path.join(__dirname, `eda_temp_${Date.now()}.py`);
+    await fs.writeFile(scriptPath, edaScript, "utf8");
+
+    try {
+      const res = await runPython(PY, [scriptPath]);
+      await fs.unlink(scriptPath).catch(() => {});
+      return {
+        content: [{ type: "text", text: JSON.stringify(res, null, 2) }],
+        structuredContent: res,
+      };
+    } catch (err) {
+      await fs.unlink(scriptPath).catch(() => {});
+      return {
+        content: [{ type: "text", text: `EDA Hatası: ${err.message}` }],
+        structuredContent: { error: err.message },
+      };
+    }
+  }
+);
+
+// 2. Dinamik Veri Temizleme Aracı
+server.tool(
+  "clean_dataset_tool",
+  "LLM tarafından yazılan veri temizleme kodunu güvenli ve self-healing ile çalıştırır",
+  {
+    code: z.string(),
+  },
+  { title: "Dynamic Dataset Cleaner" },
+  async ({ code }) => {
+    console.error("🧹 clean_dataset_tool çalıştırılıyor...");
+    let pythonCode = code.trim();
+    const fenced = pythonCode.match(/```(?:python)?\n([\s\S]*?)```/i);
+    if (fenced) pythonCode = fenced[1];
+
+    const scriptName = `clean_op_${Date.now()}.py`;
+    const scriptPath = path.join(__dirname, scriptName);
+    await fs.writeFile(scriptPath, pythonCode, "utf8");
+
+    const heal = await runPythonSelfHealing(PY, [scriptPath], scriptPath, "Dataset Clean");
+    await fs.unlink(scriptPath).catch(() => {});
+
+    if (!heal.ok) {
+      return {
+        content: [{ type: "text", text: `Temizleme Başarısız: ${heal.error}` }],
+        structuredContent: { error: heal.error },
+      };
+    }
+
+    return {
+      content: [{ type: "text", text: JSON.stringify(heal.result, null, 2) }],
+      structuredContent: heal.result,
+    };
+  }
+);
+
+// 3. Dinamik Özellik Çıkarma Aracı
+server.tool(
+  "extract_features_tool",
+  "LLM tarafından yazılan NLP özellik çıkarma kodunu self-healing ile çalıştırır",
+  {
+    code: z.string(),
+  },
+  { title: "Dynamic Feature Extractor" },
+  async ({ code }) => {
+    console.error("🧬 extract_features_tool çalıştırılıyor...");
+    let pythonCode = code.trim();
+    const fenced = pythonCode.match(/```(?:python)?\n([\s\S]*?)```/i);
+    if (fenced) pythonCode = fenced[1];
+
+    const scriptName = `feature_op_${Date.now()}.py`;
+    const scriptPath = path.join(__dirname, scriptName);
+    await fs.writeFile(scriptPath, pythonCode, "utf8");
+
+    const heal = await runPythonSelfHealing(PY, [scriptPath], scriptPath, "Feature Extraction");
+    await fs.unlink(scriptPath).catch(() => {});
+
+    if (!heal.ok) {
+      return {
+        content: [{ type: "text", text: `Özellik Çıkarma Başarısız: ${heal.error}` }],
+        structuredContent: { error: heal.error },
+      };
+    }
+
+    return {
+      content: [{ type: "text", text: JSON.stringify(heal.result, null, 2) }],
+      structuredContent: heal.result,
+    };
+  }
+);
+
+// 4. Dinamik Model Eğitici Aracı
+server.tool(
+  "train_models_tool",
+  "LLM tarafından yazılan ML-Hybrid Ensemble ve AutoML modellerini eğitir",
+  {
+    code: z.string(),
+  },
+  { title: "Dynamic Model Trainer" },
+  async ({ code }) => {
+    console.error("🏋️ train_models_tool çalıştırılıyor...");
+    let pythonCode = code.trim();
+    const fenced = pythonCode.match(/```(?:python)?\n([\s\S]*?)```/i);
+    if (fenced) pythonCode = fenced[1];
+
+    const scriptName = `train_op_${Date.now()}.py`;
+    const scriptPath = path.join(__dirname, scriptName);
+    await fs.writeFile(scriptPath, pythonCode, "utf8");
+
+    const heal = await runPythonSelfHealing(PY, [scriptPath], scriptPath, "Model Training");
+    await fs.unlink(scriptPath).catch(() => {});
+
+    if (!heal.ok) {
+      return {
+        content: [{ type: "text", text: `Model Eğitimi Başarısız: ${heal.error}` }],
+        structuredContent: { error: heal.error },
+      };
+    }
+
+    return {
+      content: [{ type: "text", text: JSON.stringify(heal.result, null, 2) }],
+      structuredContent: heal.result,
+    };
+  }
+);
+
+// 5. Dinamik Görselleştirme ve Değerlendirme Aracı
+server.tool(
+  "evaluate_and_plot_tool",
+  "Eğitilen modellerin ROC, Confusion Matrix grafiklerini çizer ve karşılaştırır",
+  {
+    code: z.string(),
+  },
+  { title: "Dynamic Model Evaluator & Plotter" },
+  async ({ code }) => {
+    console.error("📊 evaluate_and_plot_tool çalıştırılıyor...");
+    let pythonCode = code.trim();
+    const fenced = pythonCode.match(/```(?:python)?\n([\s\S]*?)```/i);
+    if (fenced) pythonCode = fenced[1];
+
+    const scriptName = `evaluate_op_${Date.now()}.py`;
+    const scriptPath = path.join(__dirname, scriptName);
+    await fs.writeFile(scriptPath, pythonCode, "utf8");
+
+    const heal = await runPythonSelfHealing(PY, [scriptPath], scriptPath, "Evaluation & Plots");
+    await fs.unlink(scriptPath).catch(() => {});
+
+    if (!heal.ok) {
+      return {
+        content: [{ type: "text", text: `Görselleştirme Başarısız: ${heal.error}` }],
+        structuredContent: { error: heal.error },
+      };
+    }
+
+    return {
+      content: [{ type: "text", text: JSON.stringify(heal.result, null, 2) }],
+      structuredContent: heal.result,
+    };
+  }
+);
+
 // --- Transport ile bağlanma (stdio) ---
 // Top-level await kullanıyoruz (package.json'da "type":"module" varsa çalışır).
 const transport = new StdioServerTransport();
 await server.connect(transport);
 
 console.error(
-  "🚀 MCP Server connected to STDIO transport. Tools: hello, train_phishing_model, auto_ml_agent"
+  "🚀 MCP Server connected to STDIO transport. Tools: hello, train_phishing_model, auto_ml_agent, analyze_dataset_tool, clean_dataset_tool, extract_features_tool, train_models_tool, evaluate_and_plot_tool"
 );
+
