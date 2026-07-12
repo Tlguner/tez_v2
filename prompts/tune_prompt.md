@@ -23,13 +23,14 @@ HYPERPARAMETER OPTIMIZATION (OPTUNA - MANDATORY):
   1. **LogisticRegression**: Optimize `C` (suggest_float with log=True: 1e-4 to 10) and `solver` (choice: `liblinear`, `lbfgs`).
   2. **RandomForestClassifier**: Optimize `n_estimators` (int: 50 to 150), `max_depth` (int: 5 to 15 or None), and `min_samples_split` (int: 2 to 10).
   3. **LinearSVC**: Optimize `C` (suggest_float with log=True: 1e-4 to 10).
-  4. **auto_model** (GradientBoostingClassifier): Optimize `learning_rate` (log=True: 1e-3 to 1e-1), `n_estimators` (int: 50 to 120), and `max_depth` (int: 3 to 7).
+  4. **auto_model** (HistGradientBoostingClassifier): Optimize `learning_rate` (log=True: 1e-3 to 1e-1), `max_iter` (int: 50 to 120), and `max_depth` (int: 3 to 7).
   
 - For each model, run exactly 15 trials using 5-fold cross-validation (`cross_val_score` with `scoring='accuracy'`) inside the Optuna objective function to maximize mean cross-validation accuracy.
 - Implement pruning using `optuna.pruners.HyperbandPruner()` to prune unpromising trials early.
 - Initialize the study sampler with a seed: `sampler = optuna.samplers.TPESampler(seed=42)`.
 - Note: In Optuna, do NOT use `study.pruned_trials`. To count pruned trials, use `len([t for t in study.trials if t.state == optuna.trial.TrialState.PRUNED])`.
-- Note: GradientBoostingClassifier and LinearSVC do NOT support the `n_jobs` parameter. Never pass `n_jobs` to them. Pass `n_jobs` only to estimators that natively support it (like RandomForestClassifier, LogisticRegression) to speed up training.
+- Note: HistGradientBoostingClassifier and LinearSVC do NOT support the `n_jobs` parameter. Never pass `n_jobs` to them. Pass `n_jobs` only to estimators that natively support it (like RandomForestClassifier, LogisticRegression) to speed up training.
+- Note: Since HistGradientBoostingClassifier does not support sparse matrices natively, you MUST convert the sparse fold matrices to dense using `.toarray()` ONLY for the HistGradientBoostingClassifier's fit and predict steps inside its objective function (e.g., `X_train_fold.toarray()`). This is safe because the 20% sample size is small enough to avoid memory issues.
 
 SAVING PARAMS:
 - Save the dictionary of best parameters for all 4 models to a JSON file at: '${best_params_json_path}'
@@ -38,7 +39,7 @@ SAVING PARAMS:
   "LogisticRegression": {"C": 0.5, "solver": "liblinear"},
   "RandomForestClassifier": {"n_estimators": 100, "max_depth": 10, "min_samples_split": 2},
   "LinearSVC": {"C": 1.0},
-  "auto_model": {"learning_rate": 0.05, "n_estimators": 80, "max_depth": 5}
+  "auto_model": {"learning_rate": 0.05, "max_iter": 80, "max_depth": 5}
 }
 
 OUTPUT:

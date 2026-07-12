@@ -393,7 +393,6 @@ async function generateTextWithRetry(options, retries = 10, delayMs = 5000) {
   // maxRetries: 0 must come AFTER the spread so it's never overridden by options.
   const mergedOptions = { ...options, maxRetries: 0 };
 
-
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       return await generateText(mergedOptions);
@@ -415,9 +414,15 @@ async function generateTextWithRetry(options, retries = 10, delayMs = 5000) {
         (errMsg.includes("429") && errMsg.includes("limit: 20"));
 
       if (isDailyQuota) {
-        console.error("\n\uD83D\uDEAB [GUNLUK KOTA DOLDU] Gemini API gunluk ucretsiz istek limiti (20 RPD) asildi.");
-        console.error("\u23F0 Kota UTC gece yarisinda sifirlanir. Lutfen yarin tekrar deneyin.");
-        console.error("\uD83D\uDCA1 Ipucu: Program durdu ama state kaydedildi -- kaldigı yerden devam edebilirsiniz.");
+        console.error(
+          "\n\uD83D\uDEAB [GUNLUK KOTA DOLDU] Gemini API gunluk ucretsiz istek limiti (20 RPD) asildi.",
+        );
+        console.error(
+          "\u23F0 Kota UTC gece yarisinda sifirlanir. Lutfen yarin tekrar deneyin.",
+        );
+        console.error(
+          "\uD83D\uDCA1 Ipucu: Program durdu ama state kaydedildi -- kaldigı yerden devam edebilirsiniz.",
+        );
         await safeShutdown(1);
         throw err;
       }
@@ -425,9 +430,15 @@ async function generateTextWithRetry(options, retries = 10, delayMs = 5000) {
       // 503: Global sunucu yuku -- retry hicbir sey degistirmez, sadece RPD kotasi yakar.
       // Ilk 503'te aninda dur. State kaydedildi, kullanici birka dakika sonra tekrar baslatiyor.
       if (isUnavailable) {
-        console.error("\n[503 MODEL MESGUL] Gemini sunuculari su an cok yogun.");
-        console.error("Retry yapilmiyor -- her deneme gunluk RPD kotasindan dusuyor.");
-        console.error("Birkas dakika bekleyip 'node client.js' ile tekrar calistirin.");
+        console.error(
+          "\n[503 MODEL MESGUL] Gemini sunuculari su an cok yogun.",
+        );
+        console.error(
+          "Retry yapilmiyor -- her deneme gunluk RPD kotasindan dusuyor.",
+        );
+        console.error(
+          "Birkas dakika bekleyip 'node client.js' ile tekrar calistirin.",
+        );
         console.error("State kaydedildi, kaldigı yerden devam edecek.");
         await safeShutdown(1);
         throw err;
@@ -441,10 +452,10 @@ async function generateTextWithRetry(options, retries = 10, delayMs = 5000) {
           waitTimeMs = Math.ceil(parseFloat(match[1]) * 1000) + 2000;
         }
         console.error(
-          `\n[429 Rate Limit] Istek limiti asildi (Deneme ${attempt}/${retries}).`
+          `\n[429 Rate Limit] Istek limiti asildi (Deneme ${attempt}/${retries}).`,
         );
         console.error(
-          `${Math.round(waitTimeMs / 1000)} saniye beklendikten sonra tekrar denenecektir...`
+          `${Math.round(waitTimeMs / 1000)} saniye beklendikten sonra tekrar denenecektir...`,
         );
         await new Promise((resolve) => setTimeout(resolve, waitTimeMs));
         continue;
@@ -456,7 +467,6 @@ async function generateTextWithRetry(options, retries = 10, delayMs = 5000) {
     }
   }
 }
-
 
 // 💾 Durum Kaydedici ve Yükleyici (State-Saver & Resume)
 async function saveState(runDir, state) {
@@ -510,7 +520,7 @@ async function checkAndGetResumePath(pipelineMode) {
     const latestRunDir = path.join(baseDir, latestRun);
 
     const state = await loadState(latestRunDir);
-    if (state && state.step_4_eval !== "completed") {
+    if (state && state.step_5_viz !== "completed") {
       return { runDir: latestRunDir, state, runName: latestRun };
     }
   } catch (e) {
@@ -532,6 +542,7 @@ async function runModularPipeline(datasetPath, pipelineMode = "ML") {
     step_3_tune: "pending",
     step_3_train: "pending",
     step_4_eval: "pending",
+    step_5_viz: "pending",
   };
 
   if (resumeInfo) {
@@ -751,7 +762,9 @@ async function runModularPipeline(datasetPath, pipelineMode = "ML") {
     .join(runDir, "best_params.json")
     .replace(/\\/g, "/");
 
-  state.step_3_tune = state.step_3_tune || (state.step_3_train === "completed" ? "completed" : "pending");
+  state.step_3_tune =
+    state.step_3_tune ||
+    (state.step_3_train === "completed" ? "completed" : "pending");
 
   if (state.step_3_tune === "completed") {
     console.log(
@@ -782,7 +795,9 @@ async function runModularPipeline(datasetPath, pipelineMode = "ML") {
       prompt: tunePrompt,
     });
 
-    console.log("⚡ LLM otonom tuning kodu üretti. Optuna optimizasyonu çalıştırılıyor...");
+    console.log(
+      "⚡ LLM otonom tuning kodu üretti. Optuna optimizasyonu çalıştırılıyor...",
+    );
     const tuneOpRes = await mcp.callTool(
       {
         name: "train_models_tool",
@@ -801,7 +816,10 @@ async function runModularPipeline(datasetPath, pipelineMode = "ML") {
     state.step_3_tune = "completed";
     state.optuna_statistics = tuneResult.optuna_statistics;
     await saveState(runDir, state);
-    console.log("✅ En iyi parametreler bulundu ve kaydedildi:", bestParamsJsonPath);
+    console.log(
+      "✅ En iyi parametreler bulundu ve kaydedildi:",
+      bestParamsJsonPath,
+    );
   }
 
   // 4️⃣ Adım 3.2: Model Eğitimi (Hybrid Ensemble & Auto-Model)
@@ -954,6 +972,94 @@ async function runModularPipeline(datasetPath, pipelineMode = "ML") {
   state.step_4_eval = "completed";
   state.evalResult = evalResult;
   await saveState(runDir, state);
+
+  // ─── Step 5: Tez Görselleştirmeleri (SHAP, Error Analysis, Word Cloud, t-SNE, Calibration) ───
+  state.step_5_viz = state.step_5_viz || "pending";
+
+  if (state.step_5_viz === "completed") {
+    console.log("⏭️ Adım 5: Görselleştirme zaten tamamlanmış, atlanıyor...");
+  } else {
+    console.log(
+      "\n🎨 Adım 5: Tez görselleştirme şablonu yükleniyor ve yerel olarak çalıştırılıyor (API kotaları harcanmaz)...",
+    );
+
+    const vizOutputDir = path.join(runDir, "viz_outputs").replace(/\\/g, "/");
+    await fs.mkdir(vizOutputDir, { recursive: true });
+
+    // Metrics JSON path from eval step
+    const modelsMetricsJsonPath = targetResultsJson;
+
+    const vizScriptTemplate = await fs.readFile(
+      path.join(__dirname, "prompts/thesis_visualizer.py"),
+      "utf8",
+    );
+
+    const vizCode = vizScriptTemplate
+      .replaceAll("${mode}", pipelineMode)
+      .replaceAll("${models_dir}", modelsDir)
+      .replaceAll("${test_features_path}", featureResult.test_features_path)
+      .replaceAll("${test_labels_path}", featureResult.test_labels_path)
+      .replaceAll("${cleaned_dataset_path}", cleanResult.cleaned_dataset_path)
+      .replaceAll("${vectorizer_pkl_path}", featureResult.vectorizer_pkl_path)
+      .replaceAll("${models_metrics_json}", modelsMetricsJsonPath)
+      .replaceAll("${viz_output_dir}", vizOutputDir);
+
+    console.log("⚡ Hazır görselleştirme şablonu yerel python'a aktarılıyor...");
+    const vizOpRes = await mcp.callTool(
+      {
+        name: "evaluate_and_plot_tool",
+        arguments: { code: vizCode },
+      },
+      undefined,
+      { timeout: GLOBAL_TIMEOUT_MS },
+    );
+
+    const vizResult = vizOpRes.structuredContent;
+    if (!vizResult || vizResult.error) {
+      console.warn(
+        `⚠️ Görselleştirme adımı başarısız: ${
+          vizResult?.error || "Bilinmeyen Hata"
+        }. Pipeline devam ediyor...`,
+      );
+    } else {
+      state.step_5_viz = "completed";
+      state.vizResult = vizResult;
+      await saveState(runDir, state);
+      console.log("✅ Tez görselleştirmeleri başarıyla üretildi.");
+      if (vizResult.shap_plots?.length > 0) {
+        console.log("🔬 SHAP Grafikleri:", vizResult.shap_plots.join(", "));
+      }
+      if (vizResult.wordcloud_comparison_plot) {
+        console.log("☁️ Kelime Bulutu:", vizResult.wordcloud_comparison_plot);
+      }
+      if (vizResult.tsne_plot) {
+        console.log("🗺️ t-SNE Grafiği:", vizResult.tsne_plot);
+      }
+      if (vizResult.calibration_plot) {
+        console.log("📐 Kalibrasyon Eğrisi:", vizResult.calibration_plot);
+      }
+
+      // Copy viz outputs to latest dir
+      try {
+        const vizLatestDir = path.join(latestDir, "viz_outputs");
+        await fs.mkdir(vizLatestDir, { recursive: true });
+        const vizFiles = await fs.readdir(vizOutputDir);
+        for (const file of vizFiles) {
+          await fs
+            .copyFile(
+              path.join(vizOutputDir, file),
+              path.join(vizLatestDir, file),
+            )
+            .catch(() => {});
+        }
+        console.log(
+          "✅ Görselleştirme dosyaları 'latest/viz_outputs/' klasörüne kopyalandı.",
+        );
+      } catch (copyErr) {
+        console.warn("⚠️ viz_outputs kopyalama hatası:", copyErr.message);
+      }
+    }
+  }
 
   // 📁 Tüm çıktıyı LATEST klasörüne senkronize et
   console.log("\n🔄 Sonuçlar 'latest/' klasörüne kopyalanıyor...");

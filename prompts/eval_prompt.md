@@ -17,16 +17,34 @@ TEST DATA LOADING RULES:
   - For both modes, this file is a numpy array (in NPY format). Load it using `np.load("${test_labels_path}")`.
   - Flatten the labels to form a 1D integer array: `y_test = np.ravel(y_test).astype(int)`.
 
-MODEL LOADING AND PREDICTION RULES:
+- MODEL LOADING AND PREDICTION RULES:
 - ALWAYS use the defined "Models Directory" ("${models_dir}") path. DO NOT attempt to load models from other directories (e.g., the directory where the test features file is located).
 - If Mode is 'ML':
   - Models are loaded from "${models_dir}/[model_name].pkl". Use `joblib` for loading (`import joblib` and `joblib.load()`).
+  - CRITICAL: Both `GaussianNB` and `auto_model` (HistGradientBoostingClassifier) do NOT support sparse matrices. In your evaluation loop, you MUST check if the model name is `"GaussianNB"` or `"auto_model"` and convert `X_test` to dense using `.toarray()` before passing it to `.predict()` or `.predict_proba()`.
+    Example structure for ML prediction loop:
+    ```python
+    for model_name in models_trained:
+        model_path = os.path.join(models_dir, f"{model_name}.pkl")
+        model = joblib.load(model_path)
+        
+        # Check if model requires dense input
+        if model_name in ["GaussianNB", "auto_model"]:
+            X_eval = X_test.toarray()
+        else:
+            X_eval = X_test
+            
+        preds = model.predict(X_eval)
+        # and similarly for predict_proba if needed...
+    ```
 - If Mode is 'DL':
   - Models are loaded from "${models_dir}/[model_name].h5". Use `tensorflow.keras.models.load_model()`.
-  - CRITICAL (loading auto_model): Since a custom `BahdanauAttention` layer is used in the `auto_model.h5` model, you must define this layer class in the evaluation script and pass `custom_objects={'BahdanauAttention': BahdanauAttention}` when loading the model.
-    Add the following BahdanauAttention class definition to the beginning of the script:
+  - CRITICAL (loading auto_model): Since a custom `BahdanauAttention` layer and several functional keras/tensor operations (which serialize as `ExpandDims`, `Sum`, and `Multiply` layers) are used in the `auto_model.h5` model, you must define these custom classes in the evaluation script and pass them in `custom_objects` when loading the model.
+    Add the following custom class definitions to the beginning of the script:
     ```python
     import tensorflow as tf
+    import keras
+
     class BahdanauAttention(tf.keras.layers.Layer):
         def __init__(self, units, **kwargs):
             super(BahdanauAttention, self).__init__(**kwargs)
@@ -47,6 +65,62 @@ MODEL LOADING AND PREDICTION RULES:
             config = super(BahdanauAttention, self).get_config()
             config.update({"units": self.units})
             return config
+
+    class ExpandDims(tf.keras.layers.Layer):
+        def __init__(self, axis, **kwargs):
+            super().__init__(**kwargs)
+            self.axis = axis
+        def call(self, inputs, **kwargs):
+            return tf.expand_dims(inputs, axis=self.axis)
+        def get_config(self):
+            config = super().get_config()
+            config.update({"axis": self.axis})
+            return config
+
+    class Sum(tf.keras.layers.Layer):
+        def __init__(self, axis, keepdims=False, **kwargs):
+            super().__init__(**kwargs)
+            self.axis = axis
+            self.keepdims = keepdims
+        def call(self, inputs, **kwargs):
+            return tf.reduce_sum(inputs, axis=self.axis, keepdims=self.keepdims)
+        def get_config(self):
+            config = super().get_config()
+            config.update({"axis": self.axis, "keepdims": self.keepdims})
+            return config
+
+    class PatchedMultiply(tf.keras.layers.Layer):
+        """
+        Keras 3-compatible element-wise multiply layer.
+        IMPORTANT: Functional model configs deserialized from H5 files might call the layer
+        with multiple positional arguments (e.g. layer(t1, t2)) instead of a single list (e.g. layer([t1, t2])).
+        To prevent 'TypeError: too many positional arguments' during Keras 3 signature binding
+        (inside CallSpec.bind), the call() method signature MUST accept variadic positional arguments (*args).
+        """
+        def call(self, inputs, *args, **kwargs):
+            if args:
+                all_inputs = [inputs] + list(args)
+            elif isinstance(inputs, (list, tuple)):
+                all_inputs = list(inputs)
+            else:
+                all_inputs = [inputs]
+            
+            result = all_inputs[0]
+            for t in all_inputs[1:]:
+                result = result * t
+            return result
+
+        def get_config(self):
+            return super().get_config()
+    ```
+    When loading `"auto_model"`, use:
+    ```python
+    model = tf.keras.models.load_model(model_path, custom_objects={
+        'BahdanauAttention': BahdanauAttention,
+        'ExpandDims': ExpandDims,
+        'Sum': Sum,
+        'Multiply': PatchedMultiply
+    })
     ```
   - The model output size for binary classification can be either 2 columns (Softmax) or 1 column (Sigmoid). If the output has 2 columns, take the 1st column (phishing probability, e.g., `preds[:, 1]`). If it has 1 column, use it directly.
 - ERROR HANDLING:
@@ -63,9 +137,18 @@ TASKS:
    - **ROC Curve Raw Data JSON** ("${roc_json_path}"): A JSON that associates and saves the large `fpr` and `tpr` float lists with model names, which are needed to plot the ROC curve. The model name keys in this JSON must also use the formatted detailed names.
 3. Plotting Graphs:
    - Save the ROC curves of all models in a single plot as "${roc_plot_path}".
-   - Confusion Matrix Plots:
-     - Plot a single large comparative graph containing subplots of the Confusion Matrices for all models (including the best-performing model) and save it to the "${cm_plot_path}" path (e.g., in a 2x3 grid layout).
-     - In addition, plot individual Confusion Matrix graphs for each model and save them as separate files named f"{os.path.dirname(cm_plot_path)}/confusion_matrix_{model_name}.png" (e.g., `confusion_matrix_lstm.png`).
+    - Confusion Matrix Plots:
+      - Plot a single large comparative graph containing subplots of the Confusion Matrices for all models (including the best-performing model) and save it to the "${cm_plot_path}" path.
+      - In addition, plot individual Confusion Matrix graphs for each model and save them as separate files. 
+         **CRITICAL FILENAME SANITIZATION RULE**: To prevent Windows MAX_PATH (260-character) path length limits or invalid filename character errors, the model name used in the individual confusion matrix filename MUST be sanitized. Strip out any parenthetical details, layer specifications, spaces, parentheses, arrows, brackets, and keep ONLY a short alphanumeric identifier (e.g., use `confusion_matrix_auto_model.png`, `confusion_matrix_TextCNN.png`, or `confusion_matrix_HybridCNN.png`). Save them as f"{os.path.dirname(cm_plot_path)}/confusion_matrix_{clean_model_name}.png".
+      - **CRITICAL CONFUSION MATRIX STYLING RULES (Academic Standard)**:
+        1. **Turn off Gridlines**: You MUST call `ax.grid(False)` or `plt.grid(False)` on each confusion matrix subplot/figure. Failing to do this creates an ugly "grid-inside-grid" effect over the matrix cells.
+        2. **Normalization & Color Bar Consistency**: Always plot the heatmap using the **normalized** confusion matrix (percentages between `0.0` and `1.0` calculated row-wise: `cm_normalized = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]`). Set `vmin=0.0` and `vmax=1.0` on the heatmap. This ensures that the colorbar scale is always between 0% and 100% (0.0 to 1.0) and looks identical across all models, rather than showing raw counts stretching to 2000.
+        3. **Cell Annotations (Prevent Overlaps)**: Display **both** the raw count and the percentage inside each cell, formatted as: `f"{count}\n({pct:.1%})"` (e.g., `1850\n(98.5%)` or `35\n(1.5%)`).
+           - **CRITICAL**: To prevent text overlaps, DO NOT pass `annot=True` to `sns.heatmap` and DO NOT write manual loops (like nested `for` loops with `ax.text` or `plt.text`) to draw numbers. Instead, create a 2D list of formatted strings:
+             `annot_labels = np.array([[f"{cm[i, j]}\n({cm_normalized[i, j]:.1%})" for j in range(2)] for i in range(2)])`
+             And pass it directly as the `annot` parameter: `sns.heatmap(cm_normalized, annot=annot_labels, fmt="", ...)`
+        4. **Labels**: Use clear class labels on the axes: `["Safe", "Phishing"]`.
    - Plot a grouped bar chart comparing Accuracy, F1-Score, Precision, and Recall values of all models side-by-side and save it as "${performance_plot_path}".
    - Plot a bar chart comparing models' training times (`time_s`) in seconds and save it as "${time_plot_path}" (read time data from `${models_metrics}`).
    - Plot a dual-subplot bar chart comparing models' CPU and RAM resource consumptions and save it as "${resource_plot_path}" (read hardware usage data from `${models_metrics}`). The left subplot must compare CPU (Average and Maximum %), and the right subplot must compare RAM (Average and Maximum MB).

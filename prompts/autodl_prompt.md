@@ -100,6 +100,15 @@ Train optimized versions of ALL of the following models using their best Optuna 
 3. GRU: Embedding -> GRU -> Dense(1, activation='sigmoid')
 4. 1D CNN: Embedding -> Conv1D -> GlobalMaxPooling1D -> Dropout -> Dense(1, activation='sigmoid')
 5. Hybrid CNN + Dense: Embedding -> Conv1D -> GlobalMaxPooling1D -> Dense(dense_units) -> Dropout -> Dense(1, activation='sigmoid')
+6. TextCNN (Multi-kernel): Embedding -> [Conv1D(kernel=3), Conv1D(kernel=4), Conv1D(kernel=5)] (parallel branches) -> [GlobalMaxPooling1D x3] -> Concatenate -> Dropout -> Dense(1, activation='sigmoid')
+   - Use Keras Functional API for parallel branches
+   - Optimize: embedding_dim, filters (int: 32-128), dropout_rate
+7. Stacked LSTM: Embedding -> LSTM(return_sequences=True) -> LSTM -> Dense(1, activation='sigmoid')
+   - Two stacked LSTM layers to capture deeper temporal dependencies
+   - Use the same embedding_dim and units from best_params (may reuse lstm params)
+8. CNN-LSTM: Embedding -> Conv1D -> MaxPooling1D -> LSTM -> Dense(1, activation='sigmoid')
+   - Conv1D extracts local n-gram features, LSTM captures sequential context from those features
+   - Optimize: embedding_dim, filters, units, dropout_rate
 
 Each model must be trained and evaluated independently.
 
@@ -116,6 +125,9 @@ Requirements:
 - Architecture must be fully designed by the AI (e.g. customized Attention or multi-branch CNN).
 - Hyperparameters must be optimized via Optuna (at least 5 trials).
 - Must be evaluated with the same metrics.
+- CRITICAL (description field): The auto_model entry in the output JSON MUST include a "description" field that:
+  (1) Lists the exact layers used in the architecture (e.g. "Embedding(64) -> Bidirectional(GRU(128, return_sequences=True)) -> Attention -> GlobalAvgPool -> Dense(64) -> Dropout(0.3) -> Dense(1)")
+  (2) Explains in 1-2 sentences WHY this specific architecture was chosen for phishing email detection (e.g. "Bidirectional GRU with attention was selected because phishing emails contain discriminative signals in both early (sender, subject) and late (call-to-action) parts of the text; the attention layer focuses on the most suspicious tokens.")
 
 ---
 
@@ -172,6 +184,7 @@ At the very end print EXACTLY one JSON object structured as follows:
   },
   "results": {
     "lstm": {
+      "description": "Embedding(dim) -> LSTM(units, dropout=rate) -> Dense(1, sigmoid)",
       "accuracy": ...,
       "precision": ...,
       "recall": ...,
@@ -189,9 +202,24 @@ At the very end print EXACTLY one JSON object structured as follows:
     "bilstm": { ... },
     "gru": { ... },
     "cnn": { ... },
-    "hybrid": { ... },
+    "hybrid": {
+      "description": "Embedding(dim) -> Conv1D(filters=N, kernel=5, relu) -> GlobalMaxPool -> Dense(dense_units, relu) -> Dropout(rate) -> Dense(1, sigmoid)",
+      ...
+    },
+    "text_cnn": {
+      "description": "Embedding(dim) -> [Conv1D(kernel=3), Conv1D(kernel=4), Conv1D(kernel=5)] -> [GlobalMaxPool x3] -> Concat -> Dropout(rate) -> Dense(1, sigmoid). Multi-scale n-gram detection captures both short trigger phrases and longer phishing patterns simultaneously.",
+      ...
+    },
+    "stacked_lstm": {
+      "description": "Embedding(dim) -> LSTM(units, return_seq=True, dropout=rate) -> LSTM(units, dropout=rate) -> Dense(1, sigmoid). Two stacked layers learn hierarchical temporal abstractions.",
+      ...
+    },
+    "cnn_lstm": {
+      "description": "Embedding(dim) -> Conv1D(filters=N, kernel=5, relu) -> MaxPool -> LSTM(units, dropout=rate) -> Dense(1, sigmoid). Conv1D extracts local n-gram features; LSTM models sequential context over those feature maps.",
+      ...
+    },
     "auto_model": {
-      "description": "short description of architecture",
+      "description": "<EXACT layer-by-layer architecture> + <1-2 sentence explanation of WHY this design was chosen for phishing detection>",
       "accuracy": ...,
       "precision": ...,
       "recall": ...,

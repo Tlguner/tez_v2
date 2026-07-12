@@ -23,15 +23,15 @@ TASK:
 
 - LOADING HYPERPARAMETERS:
   - Load the pre-tuned hyperparameters from '${best_params_json_path}' using python `json` module.
-  - Retrieve parameters for `LogisticRegression`, `RandomForestClassifier`, `LinearSVC`, and `auto_model`.
+  - Retrieve parameters for `LogisticRegression`, `RandomForestClassifier`, `LinearSVC`, `SGDClassifier`, and `auto_model`.
   - If the file is missing or values are empty, fallback to reasonable defaults.
 
 - DONANIM KAYNAK İZLEME (RESOURCE MONITORING - MANDATORY):
   - Import the `ResourceMonitor` class from `resource_monitor` (`from resource_monitor import ResourceMonitor`).
-  - For each model type (LogisticRegression, MultinomialNB, RandomForestClassifier, LinearSVC, VotingClassifier, auto_model):
-    - Instantiate and start the monitor *before* training begins.
+  - For each model type:
+    - Instantiate and start the monitor *before* training begins (`monitor = ResourceMonitor()`, `monitor.start()`).
     - Stop the monitor *after* the final model finishes training.
-    - Retrieve the monitored resource metrics (dictionary with keys: `avg_cpu_percent`, `max_cpu_percent`, `avg_ram_mb`, `max_ram_mb`).
+    - CRITICAL: The `stop()` method returns the monitored resource metrics dictionary directly. Do NOT call `get_metrics()`. Instead, use: `metrics = monitor.stop()`.
     - Include these four metrics under the model's metrics dictionary in the final JSON output.
 
 - MODELS TO TRAIN & SAVE:
@@ -40,38 +40,50 @@ TASK:
   - Train the final baseline / optimized models on the full training set using the loaded hyperparameters:
     1. LogisticRegression (Optimized) -> Save to '${models_dir}/LogisticRegression.pkl'
     2. MultinomialNB (Baseline, no optimization parameters needed) -> Save to '${models_dir}/MultinomialNB.pkl'
-    3. RandomForestClassifier (Optimized) -> Save to '${models_dir}/RandomForestClassifier.pkl'
-    4. LinearSVC (Optimized) -> Save to '${models_dir}/LinearSVC.pkl'
-    5. VotingClassifier (Hybrid Ensemble) -> Save to '${models_dir}/VotingClassifier.pkl'
+    3. GaussianNB (Baseline, no optimization parameters needed) -> Save to '${models_dir}/GaussianNB.pkl'
+       - CRITICAL: GaussianNB does NOT support sparse matrices. Convert sparse TF-IDF to dense using `.toarray()` ONLY for GaussianNB's fit and predict steps.
+    4. RandomForestClassifier (Optimized) -> Save to '${models_dir}/RandomForestClassifier.pkl'
+    5. LinearSVC (Optimized) -> Save to '${models_dir}/LinearSVC.pkl'
+    6. SGDClassifier (Optimized) -> Save to '${models_dir}/SGDClassifier.pkl'
+    7. VotingClassifier (Hybrid Ensemble) -> Save to '${models_dir}/VotingClassifier.pkl'
        - Combine at least 3 of the best performing optimized models above using hard or soft voting.
-    6. auto_model (Optimized GradientBoostingClassifier) -> Save to '${models_dir}/auto_model.pkl'
-  - CRITICAL WARNING: In Scikit-learn, GradientBoostingClassifier, LinearSVC, and MultinomialNB do NOT support the 'n_jobs' parameter. Passing 'n_jobs' to them will cause a TypeError. Ensure you NEVER pass 'n_jobs' when instantiating these classifiers. Only pass 'n_jobs' to estimators that natively support it (like RandomForestClassifier, LogisticRegression, or VotingClassifier).
+       - IMPORTANT: SGDClassifier with `hinge` loss does NOT support predict_proba; use `modified_huber` loss or exclude it from soft voting.
+    8. auto_model (Optimized HistGradientBoostingClassifier) -> Save to '${models_dir}/auto_model.pkl'
+  - CRITICAL WARNING: In Scikit-learn, HistGradientBoostingClassifier, LinearSVC, MultinomialNB, and GaussianNB do NOT support the 'n_jobs' parameter. Passing 'n_jobs' to them will cause a TypeError. Ensure you NEVER pass 'n_jobs' when instantiating these classifiers. Only pass 'n_jobs' to estimators that natively support it (like RandomForestClassifier, LogisticRegression, SGDClassifier, or VotingClassifier).
+  - NOTE: Since HistGradientBoostingClassifier does not support sparse matrices natively, you MUST convert the sparse training/testing matrices to dense using `.toarray()` ONLY for the HistGradientBoostingClassifier's fit and predict/predict_proba steps.
 
 - EVALUATION:
-  - For each of the 6 final models, obtain 1D class predictions using `.predict(X_test)`.
+  - For each of the 8 final models, obtain 1D class predictions using `.predict(X_test)`.
   - Calculate `accuracy` (using `accuracy_score`), `precision` (using `precision_score`), `recall` (using `recall_score`), and `f1` (using `f1_score`). Use `average='binary'` for precision, recall, and f1.
 
 - OUTPUT:
   - At successful end of execution, print EXACTLY this JSON format between <<<JSON_START>>> and <<<JSON_END>>> (stdout only). Include a "model_descriptions" dictionary detailing the specific configuration and parameters used for each trained model.
-  - CRITICAL (Dynamic Descriptions): The "description" for each model (especially VotingClassifier and auto_model) must NOT be a static string. It must dynamically print the actual structural layout and the best hyperparameter values found (e.g. for VotingClassifier: "Ensemble of LogisticRegression(C=0.5), RandomForest(n_estimators=100), and LinearSVC(C=0.1)", and for auto_model: "GradientBoostingClassifier with learning_rate=0.05, n_estimators=80, max_depth=5").
+  - CRITICAL (Dynamic Descriptions): The "description" for each model must be a dynamic string that accurately reflects the actual training configuration:
+    - For baseline models (LogisticRegression, MultinomialNB, GaussianNB, SGDClassifier, RandomForestClassifier, LinearSVC): state the key hyperparameters used.
+    - For VotingClassifier (Hybrid Ensemble): MUST explicitly list ALL component models with their optimized parameters in the format: "Ensemble of ModelA(paramX=valX, paramY=valY) + ModelB(paramX=valX) + ModelC(paramX=valX) using [soft/hard] voting."
+    - For auto_model: MUST include (1) the model architecture and optimized parameters AND (2) a 1-2 sentence explanation of WHY this model was chosen for this task (e.g., what makes HistGradientBoosting suitable for high-dimensional TF-IDF features compared to the base models).
 <<<JSON_START>>>
 {
   "ok": true,
-  "models_trained": ["LogisticRegression", "MultinomialNB", "RandomForestClassifier", "LinearSVC", "VotingClassifier", "auto_model"],
+  "models_trained": ["LogisticRegression", "MultinomialNB", "GaussianNB", "RandomForestClassifier", "LinearSVC", "SGDClassifier", "VotingClassifier", "auto_model"],
   "best_model": "VotingClassifier",
   "model_descriptions": {
-    "LogisticRegression": "L2 Regularized Logistic Regression optimized via Optuna",
-    "MultinomialNB": "Baseline Naive Bayes for text classification",
-    "RandomForestClassifier": "Optimized Random Forest with tuned n_estimators and max_depth",
-    "LinearSVC": "Linear Support Vector Classifier",
-    "VotingClassifier": "Ensemble of the best performing optimized classifiers (soft/hard voting)",
-    "auto_model": "Gradient Boosting Classifier optimized via Optuna"
+    "LogisticRegression": "L2 Regularized Logistic Regression with C=7.0, solver=liblinear, optimized via Optuna",
+    "MultinomialNB": "Baseline Naive Bayes for text classification with default alpha",
+    "GaussianNB": "Gaussian Naive Bayes baseline; assumes Gaussian feature distribution",
+    "RandomForestClassifier": "Optimized Random Forest with n_estimators=148, max_depth=None, min_samples_split=6",
+    "LinearSVC": "Linear Support Vector Classifier with C=0.86, optimized via Optuna",
+    "SGDClassifier": "SGD classifier with modified_huber loss and alpha=0.0001, optimized via Optuna for large-scale linear classification",
+    "VotingClassifier": "Ensemble of LogisticRegression(C=7.0, solver=liblinear) + RandomForestClassifier(n_estimators=148, max_depth=None) + LinearSVC(C=0.86) using soft voting",
+    "auto_model": "HistGradientBoostingClassifier with learning_rate=0.05, max_iter=80, max_depth=5. Selected because gradient boosting excels at capturing non-linear interactions in high-cardinality TF-IDF features that linear models miss, while remaining faster than RandomForest at inference time."
   },
   "metrics": {
     "LogisticRegression": {"accuracy": 0.95, "precision": 0.94, "recall": 0.95, "f1": 0.945, "time_s": 4.5, "avg_cpu_percent": 8.2, "max_cpu_percent": 15.5, "avg_ram_mb": 45.3, "max_ram_mb": 50.1},
     "MultinomialNB": {"accuracy": 0.93, "precision": 0.92, "recall": 0.93, "f1": 0.925, "time_s": 0.2, "avg_cpu_percent": 2.1, "max_cpu_percent": 5.0, "avg_ram_mb": 30.1, "max_ram_mb": 32.4},
+    "GaussianNB": {"accuracy": 0.91, "precision": 0.90, "recall": 0.91, "f1": 0.905, "time_s": 0.5, "avg_cpu_percent": 3.0, "max_cpu_percent": 6.0, "avg_ram_mb": 200.0, "max_ram_mb": 210.0},
     "RandomForestClassifier": {"accuracy": 0.96, "precision": 0.95, "recall": 0.96, "f1": 0.955, "time_s": 15.3, "avg_cpu_percent": 24.1, "max_cpu_percent": 85.3, "avg_ram_mb": 75.2, "max_ram_mb": 110.4},
     "LinearSVC": {"accuracy": 0.95, "precision": 0.94, "recall": 0.95, "f1": 0.945, "time_s": 2.1, "avg_cpu_percent": 9.5, "max_cpu_percent": 20.3, "avg_ram_mb": 48.2, "max_ram_mb": 55.4},
+    "SGDClassifier": {"accuracy": 0.94, "precision": 0.93, "recall": 0.94, "f1": 0.935, "time_s": 1.0, "avg_cpu_percent": 7.0, "max_cpu_percent": 14.0, "avg_ram_mb": 40.0, "max_ram_mb": 45.0},
     "VotingClassifier": {"accuracy": 0.97, "precision": 0.96, "recall": 0.97, "f1": 0.965, "time_s": 22.4, "avg_cpu_percent": 15.6, "max_cpu_percent": 45.2, "avg_ram_mb": 85.3, "max_ram_mb": 120.1},
     "auto_model": {"accuracy": 0.96, "precision": 0.95, "recall": 0.96, "f1": 0.955, "time_s": 45.1, "avg_cpu_percent": 14.1, "max_cpu_percent": 28.5, "avg_ram_mb": 62.4, "max_ram_mb": 70.2}
   }

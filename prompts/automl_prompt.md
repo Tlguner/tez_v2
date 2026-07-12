@@ -95,10 +95,12 @@ Requirements:
    - For `LogisticRegression`: Optimize regularization parameter `C` (loguniform: 1e-4 to 10) and `solver` (e.g., `liblinear`, `lbfgs`).
    - For `RandomForestClassifier`: Optimize `n_estimators` (int: 50 to 200), `max_depth` (int: 5 to 20 or None), and `min_samples_split` (int: 2 to 10).
    - For `LinearSVC`: Optimize regularization `C` (loguniform: 1e-4 to 10).
+   - For `SGDClassifier`: Optimize `alpha` (loguniform: 1e-6 to 1e-1) and `loss` (choices: `hinge`, `modified_huber`).
+   - `GaussianNB` and `MultinomialNB` have no Optuna optimization (baseline classifiers, use defaults).
 
 2. **Bayesian Optimization via 5-Fold Cross Validation**:
    - During Optuna optimization trials, the objective function to maximize MUST be the **mean 5-fold Cross Validation Accuracy** on the training split.
-   - Use `optuna.create_study(direction="optimize", pruner=optuna.pruners.HyperbandPruner())` for each classifier class.
+   - Use `optuna.create_study(direction="maximize", pruner=optuna.pruners.HyperbandPruner())` for each classifier class.
    - Run at least 10 trials per classifier class to find the best hyperparameters.
    - Log trial progress (trial number, CV score, parameters) to stderr.
    - Extract the best parameters and train the final baseline models on the full training set.
@@ -110,9 +112,11 @@ Requirements:
 Train and evaluate the optimized versions of these classifiers using 5-fold CV:
 
 - LogisticRegression (Optimized via Optuna)
-- MultinomialNB (Baseline with 5-fold CV)
+- MultinomialNB (Baseline — no Optuna, use default alpha)
+- GaussianNB (Baseline — no Optuna. IMPORTANT: sparse TF-IDF must be converted to dense using `.toarray()` ONLY for this model's fit and predict steps)
 - RandomForestClassifier (Optimized via Optuna)
 - LinearSVC (Optimized via Optuna)
+- SGDClassifier (Optimized via Optuna, use `hinge` or `modified_huber` loss)
 
 ---
 
@@ -134,9 +138,10 @@ After evaluating the hybrid model, you MUST add exactly one more:
 "auto_model"
 
 Requirements:
-- Choose any custom/advanced classifier (e.g., optimized XGBoost, LightGBM, or GradientBoostingClassifier).
+- Choose any custom/advanced classifier (e.g., optimized HistGradientBoostingClassifier).
 - Use Optuna to optimize its hyperparameters (at least 10 trials) based on 5-fold CV.
 - Train & evaluate with the same 5-fold CV and test procedure.
+- Since HistGradientBoostingClassifier does not support sparse matrices natively, you MUST convert the sparse matrix to dense using `.toarray()` ONLY for this model's fit and predict steps.
 
 ---
 
@@ -144,9 +149,9 @@ Requirements:
 
 If chosen best model is:
 
-- LogisticRegression / LinearSVC → top 15 positive TF-IDF weights
-- RandomForestClassifier / GradientBoostingClassifier / ExtraTreesClassifier → top 15 feature_importances_
-- MultinomialNB → top 15 log-probability ratios
+- LogisticRegression / LinearSVC / SGDClassifier → top 15 positive TF-IDF weights (from `.coef_`)
+- RandomForestClassifier / HistGradientBoostingClassifier / ExtraTreesClassifier → top 15 feature_importances_
+- MultinomialNB / GaussianNB → top 15 log-probability ratios
 - VotingClassifier / StackingClassifier (Hybrid) → top 15 features of its best constituent estimator or computed overall importances if available.
 
 ---
@@ -249,6 +254,7 @@ CRITICAL JSON STRUCTURE RULES:
 "fpr": [list_of_false_positive_rates],
 "tpr": [list_of_true_positive_rates],
 "top_features": [...],
+"description": "Dynamic string describing model config and WHY it was chosen (1-2 sentences for auto_model; for Hybrid/Ensemble list all component models with their parameters e.g. 'Ensemble of LogisticRegression(C=7.0) + RandomForest(n_estimators=148) + LinearSVC(C=0.86) using soft voting')",
 "optuna_gain": {
   "baseline_accuracy": ...,
   "optimized_accuracy": ...,
