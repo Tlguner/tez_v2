@@ -90,58 +90,20 @@ try:
 except Exception as e:
     print(f"[WARN] Failed to load metrics JSON: {e}", file=sys.stderr)
 
-# Define BahdanauAttention and other custom layers for DL models loading
 if MODE == "DL":
-    import tensorflow as tf
-    class BahdanauAttention(tf.keras.layers.Layer):
-        def __init__(self, units, **kwargs):
-            super(BahdanauAttention, self).__init__(**kwargs)
-            self.units = units
-            self.W1 = tf.keras.layers.Dense(units)
-            self.W2 = tf.keras.layers.Dense(units)
-            self.V = tf.keras.layers.Dense(1)
-
-        def call(self, query, values):
-            query_with_time_axis = tf.expand_dims(query, 1)
-            score = self.V(tf.nn.tanh(self.W1(query_with_time_axis) + self.W2(values)))
-            attention_weights = tf.nn.softmax(score, axis=1)
-            context_vector = attention_weights * values
-            context_vector = tf.reduce_sum(context_vector, axis=1)
-            return context_vector
-
-        def get_config(self):
-            config = super(BahdanauAttention, self).get_config()
-            config.update({"units": self.units})
-            return config
-
-    class ExpandDims(tf.keras.layers.Layer):
-        def __init__(self, axis, **kwargs):
-            super().__init__(**kwargs)
-            self.axis = axis
-        def call(self, inputs, **kwargs):
-            return tf.expand_dims(inputs, axis=self.axis)
-        def get_config(self):
-            config = super().get_config()
-            config.update({"axis": self.axis})
-            return config
-
-    class Sum(tf.keras.layers.Layer):
-        def __init__(self, axis, keepdims=False, **kwargs):
-            super().__init__(**kwargs)
-            self.axis = axis
-            self.keepdims = keepdims
-        def call(self, inputs, **kwargs):
-            return tf.reduce_sum(inputs, axis=self.axis, keepdims=self.keepdims)
-        def get_config(self):
-            config = super().get_config()
-            config.update({"axis": self.axis, "keepdims": self.keepdims})
-            return config
-
-    class PatchedMultiply(tf.keras.layers.Multiply):
-        def __call__(self, *args, **kwargs):
-            if len(args) > 1:
-                args = (list(args),)
-            return super().__call__(*args, **kwargs)
+    import torch
+    import torch.nn as nn
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(f"[INFO] Thesis Visualizer PyTorch device: {device}")
+    
+    # Import auto_DL_models module if available
+    models_dir_abs = os.path.abspath(MODELS_DIR)
+    if models_dir_abs not in sys.path:
+        sys.path.insert(0, models_dir_abs)
+    try:
+        from auto_DL_models import *
+    except ImportError:
+        pass
 
 def load_model_by_name(name):
     try:
@@ -152,19 +114,30 @@ def load_model_by_name(name):
                 path = os.path.join(MODELS_DIR, f"{alt_name}.pkl")
             return joblib.load(path)
         else:
-            path = os.path.join(MODELS_DIR, f"{name}.h5")
+            # DL Mode: Check for .pt or .h5
+            path_pt = os.path.join(MODELS_DIR, f"{name}.pt")
+            path_h5 = os.path.join(MODELS_DIR, f"{name}.h5")
+            path = path_pt if os.path.exists(path_pt) else path_h5
+            
             if not os.path.exists(path):
                 alt_name = name.split()[0].lower()
-                path = os.path.join(MODELS_DIR, f"{alt_name}.h5")
-            if "auto_model" in name.lower():
-                return tf.keras.models.load_model(path, custom_objects={
-                    'BahdanauAttention': BahdanauAttention,
-                    'ExpandDims': ExpandDims,
-                    'Sum': Sum,
-                    'Multiply': PatchedMultiply
-                })
-            else:
-                return tf.keras.models.load_model(path, compile=False)
+                path_pt_alt = os.path.join(MODELS_DIR, f"{alt_name}.pt")
+                path_h5_alt = os.path.join(MODELS_DIR, f"{alt_name}.h5")
+                path = path_pt_alt if os.path.exists(path_pt_alt) else path_h5_alt
+                
+            # Try loading as PyTorch model first
+            try:
+                model = torch.load(path, map_location=device, weights_only=False)
+                if isinstance(model, nn.Module) or hasattr(model, 'eval'):
+                    model.to(device)
+                    model.eval()
+                    return model
+            except Exception:
+                pass
+                
+            # Fallback to Keras
+            import tensorflow as tf
+            return tf.keras.models.load_model(path, compile=False)
     except Exception as e:
         print(f"[WARN] Failed to load model {name}: {e}", file=sys.stderr)
         return None
@@ -173,7 +146,6 @@ def load_model_by_name(name):
 def predict_model(model, name, features):
     if MODE == "ML":
         if name in ["GaussianNB", "auto_model"]:
-            # Convert to dense
             features_dense = features.toarray()
             preds = model.predict(features_dense)
         else:
@@ -181,7 +153,21 @@ def predict_model(model, name, features):
         return preds
     else:
         # DL predicts probabilities
-        probs = model.predict(features, verbose=0).ravel()
+        if isinstance(model, torch.nn.Module) or hasattr(model, 'eval'):
+            feat_tensor = torch.tensor(features, dtype=torch.long)
+            all_probs = []
+            with torch.no_grad():
+                for i in range(0, len(feat_tensor), 512):
+                    batch_x = feat_tensor[i:i+512].to(device)
+                    outputs = model(batch_x)
+                    if outputs.shape[-1] == 1:
+                        probs = outputs.squeeze(-1)
+                    else:
+                        probs = torch.softmax(outputs, dim=-1)[:, 1]
+                    all_probs.append(probs.cpu().numpy())
+            probs = np.concatenate(all_probs).ravel()
+        else:
+            probs = model.predict(features, verbose=0).ravel()
         return (probs >= 0.5).astype(int)
 
 # Helper to get predict probabilities robustly
@@ -195,7 +181,6 @@ def predict_proba_model(model, name, features):
             if hasattr(model, "predict_proba"):
                 return model.predict_proba(features)[:, 1]
         
-        # Fallback for LinearSVC or SGDClassifier with hinge
         if hasattr(model, "decision_function"):
             decision = model.decision_function(features)
             # Apply sigmoid

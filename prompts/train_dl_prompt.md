@@ -1,4 +1,4 @@
-You are an expert deep learning engineer using Keras/TensorFlow.
+You are an expert deep learning engineer using PyTorch and CUDA GPU acceleration.
 The dataset has already been preprocessed, tokenized, and padded.
 Features (X_train, X_test) are located at:
 - Train: '${features_npy_path}'
@@ -10,82 +10,82 @@ Tokenizer is saved at: '${vectorizer_pkl_path}'
 Best hyperparameters are saved as a JSON file at: '${best_params_json_path}'
 
 TASK:
-- Write a Python script using **Keras/TensorFlow** to train multiple optimized Deep Learning models (LSTM, BiLSTM, GRU, 1D CNN, Hybrid CNN+Dense, TextCNN, Stacked LSTM, CNN-LSTM, auto_model) using the pre-tuned hyperparameters.
-- SUPPRESS ALL TF WARNINGS at the top: `import os; os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'`
-- GPU ACCELERATION (MANDATORY FOR RTX 5070): Configure GPU memory growth to avoid OOM:
-  ```python
-  import tensorflow as tf
-  gpus = tf.config.list_physical_devices('GPU')
-  if gpus:
-      for gpu in gpus:
-          tf.config.experimental.set_memory_growth(gpu, True)
-  print(f"[INFO] Using device: {'GPU' if gpus else 'CPU'} - {len(gpus)} GPU(s) available")
-  ```
-- CRITICAL FOR WINDOWS: Always protect script execution with `if __name__ == '__main__':` at the top level. Do NOT use `multiprocessing`. Use sequential training.
+- Write a Python script using **PyTorch** with **NATIVE CUDA GPU ACCELERATION** to train multiple optimized Deep Learning models (LSTM, BiLSTM, GRU, 1D CNN, Hybrid CNN+Dense, TextCNN, Stacked LSTM, CNN-LSTM, auto_model) using the pre-tuned hyperparameters.
 
-- ARCHITECTURE GUIDE (all models use Keras functional or sequential API):
-  - LSTM: Embedding -> LSTM(units, dropout=dropout_rate) -> Dense(1, activation='sigmoid')
-  - BiLSTM: Embedding -> Bidirectional(LSTM(units, dropout=dropout_rate)) -> Dense(1, activation='sigmoid')
-  - GRU: Embedding -> GRU(units, dropout=dropout_rate) -> Dense(1, activation='sigmoid')
-  - CNN: Embedding -> Conv1D(filters, kernel_size=5, activation='relu') -> GlobalMaxPooling1D -> Dropout(dropout_rate) -> Dense(1, activation='sigmoid')
-  - Hybrid: Embedding -> Conv1D(filters, kernel_size=5, activation='relu') -> GlobalMaxPooling1D -> Dense(units, activation='relu') -> Dropout(dropout_rate) -> Dense(1, activation='sigmoid')
-  - TextCNN (Multi-kernel): Use Keras Functional API with 3 parallel branches:
-    - Input -> Embedding -> [Conv1D(kernel=3), Conv1D(kernel=4), Conv1D(kernel=5)] -> [GlobalMaxPooling1D x3] -> Concatenate -> Dropout(dropout_rate) -> Dense(1, activation='sigmoid')
-  - Stacked LSTM: Embedding -> LSTM(units, return_sequences=True, dropout=dropout_rate) -> LSTM(units, dropout=dropout_rate) -> Dense(1, activation='sigmoid')
-  - CNN-LSTM: Embedding -> Conv1D(filters, kernel_size=5, activation='relu') -> MaxPooling1D(pool_size=2) -> LSTM(units, dropout=dropout_rate) -> Dense(1, activation='sigmoid')
-  - auto_model: An innovative architecture. CRITICAL DESIGN: Use a clean sequential or functional design such as:
-    Input -> Embedding -> Bidirectional(GRU or LSTM) -> MultiHeadAttention(num_heads=4, key_dim=embedding_dim//4) -> GlobalMaxPooling1D -> Dense(64, relu) -> Dropout(dropout_rate) -> Dense(1, sigmoid)
-    Ensure all dimensions are consistent (key_dim * num_heads == the sequence feature dim). If using residual connections, add a projection layer to match dimensions. AVOID dimension mismatch errors.
+MANDATORY GPU ACCELERATION FOR RTX 5070:
+```python
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.utils.data import DataLoader, TensorDataset
 
-- DO NOT use `recurrent_dropout`. It disables cuDNN kernels on GPU. Use standard `dropout` only.
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+print(f"[INFO] Using device: {device} - {torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'CPU'}")
+```
 
-- LOADING DATA:
-  - Load using `np.load(path)`.
-  - Flatten labels to 1D using `np.ravel()` and cast to integer.
-  - Vocabulary size is 15000, sequence max length is 400.
+CRITICAL FOR WINDOWS MULTIPROCESSING:
+- Always wrap script execution inside `if __name__ == '__main__':`.
+- In PyTorch `DataLoader(..., num_workers=0, pin_memory=True)` ALWAYS set `num_workers=0` to prevent Windows deadlocks.
 
-- LOADING HYPERPARAMETERS:
-  - Load from '${best_params_json_path}' using `json` module.
-  - Retrieve `embedding_dim`, `units`, `dropout_rate`, `learning_rate` for each model type.
-  - For `text_cnn`, reuse cnn params. For `stacked_lstm`, reuse lstm params. For `cnn_lstm`, use cnn/lstm params.
-  - If file is missing or values are empty, fallback: embedding_dim=128, units=128, dropout_rate=0.2, learning_rate=0.001.
-  - filters = max(32, units // 2) when not provided directly.
+CRITICAL MODEL SERIALIZATION RULE:
+- At the START of your script, write a helper Python module file named `auto_DL_models.py` (in the current directory) containing all PyTorch `nn.Module` class definitions (`LSTMModel`, `BiLSTMModel`, `GRUModel`, `CNNModel`, `HybridModel`, `TextCNNModel`, `StackedLSTMModel`, `CNNLSTMModel`, `AutoModel`).
+- Also import `auto_DL_models` in your script: `from auto_DL_models import *`.
+- This ensures that `torch.save(model, path)` can be unpickled by ANY script (including evaluation and visualization scripts) without `AttributeError`.
 
-- TRAINING SPECIFICATION:
-  - Train each model for at most 5 epochs using EarlyStopping(monitor='val_loss', patience=1, restore_best_weights=True).
-  - Use validation_split=0.1 during training.
-  - Compile each model with: `model.compile(optimizer=Adam(lr), loss='binary_crossentropy', metrics=['accuracy'])`
-  - Fit with: `model.fit(X_train, y_train, epochs=5, batch_size=256, validation_split=0.1, callbacks=[early_stop], verbose=1)`
+PYTORCH MODEL ARCHITECTURE SPECIFICATIONS (nn.Module):
+- Vocabulary size: 15000, max sequence length: 400.
+- All models output a single logit/sigmoid value representing phishing probability:
+  - LSTM: `nn.Embedding(15000, embed_dim)` -> `nn.LSTM(embed_dim, units, batch_first=True, dropout=dropout_rate)` -> `nn.Linear(units, 1)` -> `nn.Sigmoid()`
+  - BiLSTM: `nn.Embedding` -> `nn.LSTM(..., bidirectional=True)` -> `nn.Linear(units*2, 1)` -> `nn.Sigmoid()`
+  - GRU: `nn.Embedding` -> `nn.GRU(embed_dim, units, batch_first=True, dropout=dropout_rate)` -> `nn.Linear(units, 1)` -> `nn.Sigmoid()`
+  - CNN: `nn.Embedding` -> `nn.Conv1d(embed_dim, filters, kernel_size=5)` -> `nn.AdaptiveMaxPool1d(1)` -> `nn.Dropout` -> `nn.Linear(filters, 1)` -> `nn.Sigmoid()`
+  - Hybrid: `nn.Embedding` -> `nn.Conv1d` -> `nn.AdaptiveMaxPool1d(1)` -> `nn.Linear(filters, units)` -> `nn.ReLU()` -> `nn.Dropout` -> `nn.Linear(units, 1)` -> `nn.Sigmoid()`
+  - TextCNN (Multi-kernel): 3 parallel branches: `nn.Conv1d` with kernel sizes 3, 4, 5. AdaptiveMaxPool1d each branch, concatenate outputs -> `nn.Dropout` -> `nn.Linear(filters*3, 1)` -> `nn.Sigmoid()`
+  - Stacked LSTM: `nn.Embedding` -> `nn.LSTM(embed_dim, units, num_layers=2, batch_first=True, dropout=dropout_rate)` -> `nn.Linear(units, 1)` -> `nn.Sigmoid()`
+  - CNN-LSTM: `nn.Embedding` -> `nn.Conv1d` -> `nn.MaxPool1d(2)` -> `nn.LSTM` -> `nn.Linear` -> `nn.Sigmoid()`
+  - auto_model: An innovative PyTorch architecture, e.g., `nn.Embedding` -> `nn.GRU(..., bidirectional=True)` -> `nn.MultiheadAttention` -> `nn.AdaptiveMaxPool1d(1)` -> `nn.Linear(units, 64)` -> `nn.ReLU()` -> `nn.Dropout` -> `nn.Linear(64, 1)` -> `nn.Sigmoid()`. Ensure query, key, value dimensions match `embed_dim`.
 
-- HARDWARE RESOURCE MONITORING (MANDATORY):
-  - Import `from resource_monitor import ResourceMonitor`
-  - For each model: instantiate and start monitor BEFORE training, stop AFTER training.
-  - `metrics = monitor.stop()` — do NOT call `get_metrics()`.
-  - Include `avg_cpu_percent`, `max_cpu_percent`, `avg_ram_mb`, `max_ram_mb` in model metrics.
+DATA LOADING & GPU DATASETS:
+- Load `X_train`, `X_test`, `y_train`, `y_test` using `np.load(path)`.
+- Flatten labels using `np.ravel()`.
+- Convert to torch Tensors:
+  `train_x = torch.tensor(X_train, dtype=torch.long)`
+  `train_y = torch.tensor(y_train, dtype=torch.float32).unsqueeze(1)`
+- Create `TensorDataset` and `DataLoader(..., batch_size=256, shuffle=True, num_workers=0)`.
 
-- MODELS TO TRAIN & SAVE:
-  - Ensure models directory '${models_dir}' exists.
-  - Save all models using `model.save(path)` in Keras `.h5` format:
-    - lstm         -> '${models_dir}/lstm.h5'
-    - bilstm       -> '${models_dir}/bilstm.h5'
-    - gru          -> '${models_dir}/gru.h5'
-    - cnn          -> '${models_dir}/cnn.h5'
-    - hybrid       -> '${models_dir}/hybrid.h5'
-    - text_cnn     -> '${models_dir}/text_cnn.h5'
-    - stacked_lstm -> '${models_dir}/stacked_lstm.h5'
-    - cnn_lstm     -> '${models_dir}/cnn_lstm.h5'
-    - auto_model   -> '${models_dir}/auto_model.h5'
-  - CRITICAL: Use ONLY `model.save(path)` (Keras format). Do NOT use PyTorch `torch.save`.
+TRAINING LOOP SPECIFICATION:
+- Optimizer: `torch.optim.Adam(model.parameters(), lr=learning_rate)`
+- Loss function: `nn.BCELoss()` or `nn.BCEWithLogitsLoss()`
+- Move model and batch tensors to `device`: `model.to(device)`, `inputs.to(device)`, `targets.to(device)`.
+- Train each model on GPU for at most 5 epochs with EarlyStopping (stop if train loss does not improve for 1 epoch).
 
-- EVALUATION (on test set after training):
-  - For each model: `proba = model.predict(X_test, verbose=0).ravel(); preds = (proba >= 0.5).astype(int)`
-  - Calculate `accuracy`, `precision`, `recall`, `f1` using sklearn.metrics.
-  - Record `time_s` (wall-clock training time in seconds).
+HARDWARE RESOURCE MONITORING (MANDATORY):
+- Import `from resource_monitor import ResourceMonitor`
+- For each model: instantiate and start monitor BEFORE training, stop AFTER training.
+- `metrics = monitor.stop()` — do NOT call `get_metrics()`.
+- Include `avg_cpu_percent`, `max_cpu_percent`, `avg_ram_mb`, `max_ram_mb` in model metrics.
 
-- OUTPUT:
-  - At successful end, print EXACTLY this JSON format between <<<JSON_START>>> and <<<JSON_END>>> (stdout only).
-  - Include a "model_descriptions" dict with actual architecture + hyperparameter values per model.
-  - Dynamic descriptions: for auto_model, include exact layer sequence AND 1-2 sentences explaining WHY the architecture suits phishing detection.
+SAVING MODELS:
+- Ensure models directory '${models_dir}' exists.
+- Save each trained model using `torch.save(model, path)`:
+  - lstm         -> '${models_dir}/lstm.h5' (or .pt)
+  - bilstm       -> '${models_dir}/bilstm.h5'
+  - gru          -> '${models_dir}/gru.h5'
+  - cnn          -> '${models_dir}/cnn.h5'
+  - hybrid       -> '${models_dir}/hybrid.h5'
+  - text_cnn     -> '${models_dir}/text_cnn.h5'
+  - stacked_lstm -> '${models_dir}/stacked_lstm.h5'
+  - cnn_lstm     -> '${models_dir}/cnn_lstm.h5'
+  - auto_model   -> '${models_dir}/auto_model.h5'
+
+EVALUATION (on test set after training):
+- Evaluate model on test set using `model.eval()` and `with torch.no_grad():`.
+- Compute probability outputs on `device`, move to CPU numpy arrays: `probs = model(test_x).cpu().numpy().ravel()`, `preds = (probs >= 0.5).astype(int)`.
+- Calculate `accuracy`, `precision`, `recall`, `f1` using `sklearn.metrics`.
+- Record `time_s` (wall-clock training time in seconds).
+
+OUTPUT:
+- At successful end, print EXACTLY this JSON format between <<<JSON_START>>> and <<<JSON_END>>> (stdout only):
 <<<JSON_START>>>
 {
 "ok": true,
@@ -103,15 +103,15 @@ TASK:
 "auto_model": "<exact layer architecture with values>. <1-2 sentences: WHY this architecture suits phishing email detection>"
 },
 "metrics": {
-"lstm": {"accuracy": 0.95, "precision": 0.94, "recall": 0.95, "f1": 0.94, "time_s": 45.1, "avg_cpu_percent": 15.2, "max_cpu_percent": 35.5, "avg_ram_mb": 220.4, "max_ram_mb": 280.1},
-"bilstm": {"accuracy": 0.96, "precision": 0.95, "recall": 0.96, "f1": 0.95, "time_s": 52.3, "avg_cpu_percent": 18.1, "max_cpu_percent": 39.2, "avg_ram_mb": 240.5, "max_ram_mb": 310.2},
-"gru": {"accuracy": 0.95, "precision": 0.94, "recall": 0.95, "f1": 0.94, "time_s": 42.1, "avg_cpu_percent": 14.5, "max_cpu_percent": 32.1, "avg_ram_mb": 210.3, "max_ram_mb": 260.4},
-"cnn": {"accuracy": 0.94, "precision": 0.93, "recall": 0.94, "f1": 0.93, "time_s": 30.5, "avg_cpu_percent": 10.2, "max_cpu_percent": 25.1, "avg_ram_mb": 150.1, "max_ram_mb": 190.2},
-"hybrid": {"accuracy": 0.95, "precision": 0.94, "recall": 0.95, "f1": 0.94, "time_s": 65.2, "avg_cpu_percent": 16.4, "max_cpu_percent": 36.8, "avg_ram_mb": 230.2, "max_ram_mb": 290.5},
-"text_cnn": {"accuracy": 0.96, "precision": 0.95, "recall": 0.96, "f1": 0.95, "time_s": 35.0, "avg_cpu_percent": 12.0, "max_cpu_percent": 28.0, "avg_ram_mb": 180.0, "max_ram_mb": 220.0},
-"stacked_lstm": {"accuracy": 0.96, "precision": 0.95, "recall": 0.96, "f1": 0.95, "time_s": 90.0, "avg_cpu_percent": 22.0, "max_cpu_percent": 45.0, "avg_ram_mb": 260.0, "max_ram_mb": 320.0},
-"cnn_lstm": {"accuracy": 0.96, "precision": 0.95, "recall": 0.96, "f1": 0.95, "time_s": 70.0, "avg_cpu_percent": 18.0, "max_cpu_percent": 40.0, "avg_ram_mb": 240.0, "max_ram_mb": 300.0},
-"auto_model": {"accuracy": 0.96, "precision": 0.95, "recall": 0.96, "f1": 0.95, "time_s": 80.4, "avg_cpu_percent": 19.3, "max_cpu_percent": 41.5, "avg_ram_mb": 260.1, "max_ram_mb": 330.4}
+"lstm": {"accuracy": 0.95, "precision": 0.94, "recall": 0.95, "f1": 0.94, "time_s": 4.1, "avg_cpu_percent": 15.2, "max_cpu_percent": 35.5, "avg_ram_mb": 220.4, "max_ram_mb": 280.1},
+"bilstm": {"accuracy": 0.96, "precision": 0.95, "recall": 0.96, "f1": 0.95, "time_s": 5.3, "avg_cpu_percent": 18.1, "max_cpu_percent": 39.2, "avg_ram_mb": 240.5, "max_ram_mb": 310.2},
+"gru": {"accuracy": 0.95, "precision": 0.94, "recall": 0.95, "f1": 0.94, "time_s": 4.1, "avg_cpu_percent": 14.5, "max_cpu_percent": 32.1, "avg_ram_mb": 210.3, "max_ram_mb": 260.4},
+"cnn": {"accuracy": 0.94, "precision": 0.93, "recall": 0.94, "f1": 0.93, "time_s": 2.5, "avg_cpu_percent": 10.2, "max_cpu_percent": 25.1, "avg_ram_mb": 150.1, "max_ram_mb": 190.2},
+"hybrid": {"accuracy": 0.95, "precision": 0.94, "recall": 0.95, "f1": 0.94, "time_s": 3.2, "avg_cpu_percent": 16.4, "max_cpu_percent": 36.8, "avg_ram_mb": 230.2, "max_ram_mb": 290.5},
+"text_cnn": {"accuracy": 0.96, "precision": 0.95, "recall": 0.96, "f1": 0.95, "time_s": 3.0, "avg_cpu_percent": 12.0, "max_cpu_percent": 28.0, "avg_ram_mb": 180.0, "max_ram_mb": 220.0},
+"stacked_lstm": {"accuracy": 0.96, "precision": 0.95, "recall": 0.96, "f1": 0.95, "time_s": 8.0, "avg_cpu_percent": 22.0, "max_cpu_percent": 45.0, "avg_ram_mb": 260.0, "max_ram_mb": 320.0},
+"cnn_lstm": {"accuracy": 0.96, "precision": 0.95, "recall": 0.96, "f1": 0.95, "time_s": 6.0, "avg_cpu_percent": 18.0, "max_cpu_percent": 40.0, "avg_ram_mb": 240.0, "max_ram_mb": 300.0},
+"auto_model": {"accuracy": 0.96, "precision": 0.95, "recall": 0.96, "f1": 0.95, "time_s": 7.4, "avg_cpu_percent": 19.3, "max_cpu_percent": 41.5, "avg_ram_mb": 260.1, "max_ram_mb": 330.4}
 }
 }
 <<<JSON_END>>>

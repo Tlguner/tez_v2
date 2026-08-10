@@ -38,35 +38,46 @@ TEST DATA LOADING RULES:
         # and similarly for predict_proba if needed...
     ```
 - If Mode is 'DL':
-  - Models are trained and saved using **Keras/TensorFlow** at `${models_dir}/[model_name].h5`.
-  - CRITICAL: Add this block at the TOP of your script (before any other imports):
+  - Models are trained and saved using **PyTorch** at `${models_dir}/[model_name].pt` (or `.h5`).
+  - CRITICAL: Add this block at the TOP of your script:
     ```python
     import os
-    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-    import tensorflow as tf
-    gpus = tf.config.list_physical_devices('GPU')
-    if gpus:
-        for gpu in gpus:
-            tf.config.experimental.set_memory_growth(gpu, True)
-    from tensorflow import keras
+    import sys
+    import torch
+    import torch.nn as nn
+
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(f"[INFO] Evaluation PyTorch using device: {device} ({torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'CPU'})")
+
+    # Add models_dir to sys.path to resolve auto_DL_models module if present
+    models_dir_abs = os.path.abspath("${models_dir}")
+    if models_dir_abs not in sys.path:
+        sys.path.insert(0, models_dir_abs)
+    try:
+        from auto_DL_models import *
+    except ImportError:
+        pass
     ```
-  - CRITICAL: The `auto_model` may use custom Keras layers. To handle unknown layers gracefully, wrap load_model with custom_objects and a fallback:
+  - Load each model using: `model = torch.load(model_path, map_location=device, weights_only=False)`.
+  - Call `model.to(device)` and `model.eval()`.
+  - Pass test inputs as PyTorch Tensors on `device` within a `with torch.no_grad():` block in batches of 512 to compute predictions and probability scores:
     ```python
-    def load_dl_model(model_path):
-        try:
-            return keras.models.load_model(model_path)
-        except Exception:
-            # Fallback: try with compile=False for models with custom metrics
-            return keras.models.load_model(model_path, compile=False)
-    ```
-  - Load each model: `model = load_dl_model(model_path)` then `model.trainable = False`.
-  - For predictions, process in batches of 512:
-    ```python
-    proba = model.predict(X_test, batch_size=512, verbose=0).ravel()
+    X_test_tensor = torch.tensor(X_test, dtype=torch.long)
+    all_probs = []
+    with torch.no_grad():
+        for i in range(0, len(X_test_tensor), 512):
+            batch_x = X_test_tensor[i:i+512].to(device)
+            outputs = model(batch_x)
+            if outputs.shape[-1] == 1:
+                probs = outputs.squeeze(-1)
+            else:
+                probs = torch.softmax(outputs, dim=-1)[:, 1]
+            all_probs.append(probs.cpu().numpy())
+    proba = np.concatenate(all_probs).ravel()
     preds = (proba >= 0.5).astype(int)
     ```
-  - Use `proba` directly as positive-class score for ROC AUC computation: `roc_curve(y_true, proba)`.
-  - CRITICAL WINDOWS: Do NOT use `multiprocessing` or `threading` to parallelize predictions. Run sequentially.
+  - Use `proba` directly as the positive-class score for ROC AUC computation (`roc_curve(y_true, proba)`).
+  - CRITICAL WINDOWS MULTIPROCESSING: Do NOT use `multiprocessing` or `threading`. Run sequentially.
 - ERROR HANDLING:
   - If an error occurs during model loading or prediction, DO NOT silently generate mock predictions! Raise the exception or exit the script with a non-zero exit code so that the self-healing mechanism can detect and fix the issue.
 
