@@ -888,6 +888,29 @@ async function runModularPipeline(datasetPath, pipelineMode = "ML") {
 
 
   // 5️⃣ Adım 4: Değerlendirme & Grafikler (ROC, Confusion Matrix)
+  const targetRocPng = path.join(runDir, "roc_curve.png").replace(/\\/g, "/");
+  const targetCmPng = path
+    .join(runDir, "confusion_matrix.png")
+    .replace(/\\/g, "/");
+  const targetResultsJson = path
+    .join(runDir, "auto_ML_results.json")
+    .replace(/\\/g, "/");
+  const targetRocJson = path
+    .join(runDir, "roc_curve_data.json")
+    .replace(/\\/g, "/");
+  const targetResourcePng = path
+    .join(runDir, "model_resource_comparison.png")
+    .replace(/\\/g, "/");
+  const plotsDir = path
+    .join(__dirname, "thesis_pipeline/plots")
+    .replace(/\\/g, "/");
+  const targetPerformancePng = path
+    .join(plotsDir, "model_performance_comparison.png")
+    .replace(/\\/g, "/");
+  const targetTimePng = path
+    .join(plotsDir, "model_training_time_comparison.png")
+    .replace(/\\/g, "/");
+
   let evalResult;
   if (state.step_4_eval === "completed") {
     console.log(
@@ -902,29 +925,6 @@ async function runModularPipeline(datasetPath, pipelineMode = "ML") {
       path.join(__dirname, "prompts/eval_prompt.md"),
       "utf8",
     );
-
-    const targetRocPng = path.join(runDir, "roc_curve.png").replace(/\\/g, "/");
-    const targetCmPng = path
-      .join(runDir, "confusion_matrix.png")
-      .replace(/\\/g, "/");
-    const targetResultsJson = path
-      .join(runDir, "auto_ML_results.json")
-      .replace(/\\/g, "/");
-    const targetRocJson = path
-      .join(runDir, "roc_curve_data.json")
-      .replace(/\\/g, "/");
-    const targetResourcePng = path
-      .join(runDir, "model_resource_comparison.png")
-      .replace(/\\/g, "/");
-    const plotsDir = path
-      .join(__dirname, "thesis_pipeline/plots")
-      .replace(/\\/g, "/");
-    const targetPerformancePng = path
-      .join(plotsDir, "model_performance_comparison.png")
-      .replace(/\\/g, "/");
-    const targetTimePng = path
-      .join(plotsDir, "model_training_time_comparison.png")
-      .replace(/\\/g, "/");
 
     const modelsMetricsMerged = {};
     const trainMetrics = trainResult.metrics || {};
