@@ -277,46 +277,59 @@ function runPython(pythonCmd, args) {
       console.error("[PY STDERR]", d.toString().trim());
     });
 
-    // In server.js -> runPython -> py.on("close", ...)
-
     py.on("close", (code) => {
+      const START = "<<<JSON_START>>>";
+      const END = "<<<JSON_END>>>";
+
+      const startIndex = stdout.indexOf(START);
+      const endIndex = stdout.indexOf(END);
+
+      let jsonString = "";
+      if (startIndex !== -1 && endIndex !== -1) {
+        jsonString = stdout
+          .substring(startIndex + START.length, endIndex)
+          .trim();
+      } else {
+        const firstBrace = stdout.indexOf("{");
+        const lastBrace = stdout.lastIndexOf("}");
+        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+          jsonString = stdout.substring(firstBrace, lastBrace + 1).trim();
+        }
+      }
+
+      // If valid JSON was printed to stdout, succeed even if Windows C++ teardown exit code is non-zero
+      if (jsonString) {
+        try {
+          const parsed = JSON.parse(jsonString);
+          if (parsed && typeof parsed === "object" && (parsed.ok === true || parsed.accuracy || parsed.metrics || parsed.total_rows)) {
+            return resolve(parsed);
+          }
+        } catch (e) {
+          /* fallback to exit code check */
+        }
+      }
+
       if (code !== 0) {
         return reject(
           new Error(`Python exited with code ${code}. Stderr:\n${stderr}`)
         );
       }
 
+      if (!jsonString) {
+        return reject(
+          new Error(
+            "JSON markers not found in Python output, and no fallback JSON object found. Ensure Python prints <<<JSON_START>>> and <<<JSON_END>>>."
+          )
+        );
+      }
+
       try {
-        const START = "<<<JSON_START>>>";
-        const END = "<<<JSON_END>>>";
-
-        const startIndex = stdout.indexOf(START);
-        const endIndex = stdout.indexOf(END);
-
-        let jsonString = "";
-        if (startIndex !== -1 && endIndex !== -1) {
-          jsonString = stdout
-            .substring(startIndex + START.length, endIndex)
-            .trim();
-        } else {
-          // Fallback: search for first '{' and last '}' in stdout
-          const firstBrace = stdout.indexOf("{");
-          const lastBrace = stdout.lastIndexOf("}");
-          if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-            jsonString = stdout.substring(firstBrace, lastBrace + 1).trim();
-          } else {
-            throw new Error(
-              "JSON markers not found in Python output, and no fallback JSON object found. Ensure Python prints <<<JSON_START>>> and <<<JSON_END>>>."
-            );
-          }
-        }
-
         const parsed = JSON.parse(jsonString);
         resolve(parsed);
       } catch (e) {
         reject(
           new Error(
-            `Failed to parse JSON from Python stdout: ${e.message}\nStdout:\n${stdout}`
+            `Failed to parse JSON output: ${e.message}. Raw output:\n${jsonString}`
           )
         );
       }

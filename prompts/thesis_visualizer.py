@@ -143,15 +143,20 @@ if MODE == "DL":
                 args = (list(args),)
             return super().__call__(*args, **kwargs)
 
-# Helper to load models
 def load_model_by_name(name):
     try:
         if MODE == "ML":
             path = os.path.join(MODELS_DIR, f"{name}.pkl")
+            if not os.path.exists(path):
+                alt_name = name.split()[0].lower()
+                path = os.path.join(MODELS_DIR, f"{alt_name}.pkl")
             return joblib.load(path)
         else:
             path = os.path.join(MODELS_DIR, f"{name}.h5")
-            if name == "auto_model":
+            if not os.path.exists(path):
+                alt_name = name.split()[0].lower()
+                path = os.path.join(MODELS_DIR, f"{alt_name}.h5")
+            if "auto_model" in name.lower():
                 return tf.keras.models.load_model(path, custom_objects={
                     'BahdanauAttention': BahdanauAttention,
                     'ExpandDims': ExpandDims,

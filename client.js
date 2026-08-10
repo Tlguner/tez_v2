@@ -39,6 +39,8 @@ const google = createGoogleGenerativeAI({
   apiKey: process.env.GEMINI_API_KEY,
 });
 
+const PRIMARY_MODEL = process.env.GEMINI_MODEL || "gemini-3.6-flash";
+
 // Güvenli kapatma fonksiyonu (Önceki kodunuzdan alındı)
 async function safeShutdown(code = 0) {
   try {
@@ -75,7 +77,7 @@ async function handleQuery(tools) {
     const messages = [...currentMessages];
 
     const gen = await generateText({
-      model: google("gemini-2.5-flash"),
+      model: google(PRIMARY_MODEL),
       messages, // now correctly formatted
       tools: tools.reduce((obj, tool) => {
         obj[tool.name] = {
@@ -461,8 +463,7 @@ async function generateTextWithRetry(options, retries = 10, delayMs = 5000) {
         continue;
       }
 
-      console.error("\n[API HATASI] Tum denemeler basarisiz oldu.");
-      await safeShutdown(1);
+      console.error("\n[API HATASI] Tüm denemeler başarısız oldu. State güvenle kaydedildi.");
       throw err;
     }
   }
@@ -655,7 +656,7 @@ async function runModularPipeline(datasetPath, pipelineMode = "ML") {
       .replaceAll("${eda_summary}", JSON.stringify(edaData, null, 2));
 
     const cleanGen = await generateTextWithRetry({
-      model: google("gemini-2.5-flash"),
+      model: google(PRIMARY_MODEL),
       prompt: cleanPrompt,
     });
 
@@ -731,7 +732,7 @@ async function runModularPipeline(datasetPath, pipelineMode = "ML") {
       .replaceAll("${mode}", pipelineMode);
 
     const featureGen = await generateTextWithRetry({
-      model: google("gemini-2.5-flash"),
+      model: google(PRIMARY_MODEL),
       prompt: featurePrompt,
     });
 
@@ -791,7 +792,7 @@ async function runModularPipeline(datasetPath, pipelineMode = "ML") {
       .replaceAll("${best_params_json_path}", bestParamsJsonPath);
 
     const tuneGen = await generateTextWithRetry({
-      model: google("gemini-2.5-flash"),
+      model: google(PRIMARY_MODEL),
       prompt: tunePrompt,
     });
 
@@ -859,7 +860,7 @@ async function runModularPipeline(datasetPath, pipelineMode = "ML") {
       .replaceAll("${models_dir}", modelsDir);
 
     const trainGen = await generateTextWithRetry({
-      model: google("gemini-2.5-flash"),
+      model: google(PRIMARY_MODEL),
       prompt: trainPrompt,
     });
 
@@ -885,93 +886,103 @@ async function runModularPipeline(datasetPath, pipelineMode = "ML") {
     console.log("✅ Modeller başarıyla eğitildi ve kaydedildi.");
   }
 
+
   // 5️⃣ Adım 4: Değerlendirme & Grafikler (ROC, Confusion Matrix)
-  console.log(
-    "\n📊 Adım 4: Değerlendirme ve grafik oluşturma otonom kodu yazılıyor...",
-  );
-  const evalPromptTemplate = await fs.readFile(
-    path.join(__dirname, "prompts/eval_prompt.md"),
-    "utf8",
-  );
-
-  const targetRocPng = path.join(runDir, "roc_curve.png").replace(/\\/g, "/");
-  const targetCmPng = path
-    .join(runDir, "confusion_matrix.png")
-    .replace(/\\/g, "/");
-  const targetResultsJson = path
-    .join(runDir, "auto_ML_results.json")
-    .replace(/\\/g, "/");
-  const targetRocJson = path
-    .join(runDir, "roc_curve_data.json")
-    .replace(/\\/g, "/");
-  const targetResourcePng = path
-    .join(runDir, "model_resource_comparison.png")
-    .replace(/\\/g, "/");
-  const plotsDir = path
-    .join(__dirname, "thesis_pipeline/plots")
-    .replace(/\\/g, "/");
-  const targetPerformancePng = path
-    .join(plotsDir, "model_performance_comparison.png")
-    .replace(/\\/g, "/");
-  const targetTimePng = path
-    .join(plotsDir, "model_training_time_comparison.png")
-    .replace(/\\/g, "/");
-
-  const modelsMetricsMerged = {};
-  const trainMetrics = trainResult.metrics || {};
-  const trainDescriptions = trainResult.model_descriptions || {};
-  for (const [modelName, metricsObj] of Object.entries(trainMetrics)) {
-    modelsMetricsMerged[modelName] = {
-      ...metricsObj,
-      description: trainDescriptions[modelName] || "",
-    };
-  }
-
-  const evalPrompt = evalPromptTemplate
-    .replaceAll(
-      "${models_trained}",
-      JSON.stringify(trainResult.models_trained || trainResult.results || {}),
-    )
-    .replaceAll("${test_features_path}", featureResult.test_features_path)
-    .replaceAll("${test_labels_path}", featureResult.test_labels_path)
-    .replaceAll("${models_dir}", modelsDir)
-    .replaceAll("${plots_dir}", plotsDir)
-    .replaceAll("${roc_plot_path}", targetRocPng)
-    .replaceAll("${cm_plot_path}", targetCmPng)
-    .replaceAll("${performance_plot_path}", targetPerformancePng)
-    .replaceAll("${time_plot_path}", targetTimePng)
-    .replaceAll("${resource_plot_path}", targetResourcePng)
-    .replaceAll("${results_json_path}", targetResultsJson)
-    .replaceAll("${roc_json_path}", targetRocJson)
-    .replaceAll("${models_metrics}", JSON.stringify(modelsMetricsMerged))
-    .replaceAll("${mode}", pipelineMode);
-
-  const evalGen = await generateTextWithRetry({
-    model: google("gemini-2.5-flash"),
-    prompt: evalPrompt,
-  });
-
-  console.log("⚡ LLM değerlendirme kodu üretti. Grafikler çiziliyor...");
-  const evalOpRes = await mcp.callTool(
-    {
-      name: "evaluate_and_plot_tool",
-      arguments: { code: evalGen.text },
-    },
-    undefined,
-    { timeout: GLOBAL_TIMEOUT_MS },
-  );
-
-  const evalResult = evalOpRes.structuredContent;
-  if (!evalResult || evalResult.error) {
-    throw new Error(
-      `Değerlendirme başarısız: ${evalResult?.error || "Bilinmeyen Hata"}`,
+  let evalResult;
+  if (state.step_4_eval === "completed") {
+    console.log(
+      "⏭️ Adım 4: Değerlendirme zaten tamamlanmış, diskten yükleniyor...",
     );
+    evalResult = state.evalResult;
+  } else {
+    console.log(
+      "\n📊 Adım 4: Değerlendirme ve grafik oluşturma otonom kodu yazılıyor...",
+    );
+    const evalPromptTemplate = await fs.readFile(
+      path.join(__dirname, "prompts/eval_prompt.md"),
+      "utf8",
+    );
+
+    const targetRocPng = path.join(runDir, "roc_curve.png").replace(/\\/g, "/");
+    const targetCmPng = path
+      .join(runDir, "confusion_matrix.png")
+      .replace(/\\/g, "/");
+    const targetResultsJson = path
+      .join(runDir, "auto_ML_results.json")
+      .replace(/\\/g, "/");
+    const targetRocJson = path
+      .join(runDir, "roc_curve_data.json")
+      .replace(/\\/g, "/");
+    const targetResourcePng = path
+      .join(runDir, "model_resource_comparison.png")
+      .replace(/\\/g, "/");
+    const plotsDir = path
+      .join(__dirname, "thesis_pipeline/plots")
+      .replace(/\\/g, "/");
+    const targetPerformancePng = path
+      .join(plotsDir, "model_performance_comparison.png")
+      .replace(/\\/g, "/");
+    const targetTimePng = path
+      .join(plotsDir, "model_training_time_comparison.png")
+      .replace(/\\/g, "/");
+
+    const modelsMetricsMerged = {};
+    const trainMetrics = trainResult.metrics || {};
+    const trainDescriptions = trainResult.model_descriptions || {};
+    for (const [modelName, metricsObj] of Object.entries(trainMetrics)) {
+      modelsMetricsMerged[modelName] = {
+        ...metricsObj,
+        description: trainDescriptions[modelName] || "",
+      };
+    }
+
+    const evalPrompt = evalPromptTemplate
+      .replaceAll(
+        "${models_trained}",
+        JSON.stringify(trainResult.models_trained || trainResult.results || {}),
+      )
+      .replaceAll("${test_features_path}", featureResult.test_features_path)
+      .replaceAll("${test_labels_path}", featureResult.test_labels_path)
+      .replaceAll("${models_dir}", modelsDir)
+      .replaceAll("${plots_dir}", plotsDir)
+      .replaceAll("${roc_plot_path}", targetRocPng)
+      .replaceAll("${cm_plot_path}", targetCmPng)
+      .replaceAll("${performance_plot_path}", targetPerformancePng)
+      .replaceAll("${time_plot_path}", targetTimePng)
+      .replaceAll("${resource_plot_path}", targetResourcePng)
+      .replaceAll("${results_json_path}", targetResultsJson)
+      .replaceAll("${roc_json_path}", targetRocJson)
+      .replaceAll("${models_metrics}", JSON.stringify(modelsMetricsMerged))
+      .replaceAll("${mode}", pipelineMode);
+
+    const evalGen = await generateTextWithRetry({
+      model: google(PRIMARY_MODEL),
+      prompt: evalPrompt,
+    });
+
+    console.log("⚡ LLM değerlendirme kodu üretti. Grafikler çiziliyor...");
+    const evalOpRes = await mcp.callTool(
+      {
+        name: "evaluate_and_plot_tool",
+        arguments: { code: evalGen.text },
+      },
+      undefined,
+      { timeout: GLOBAL_TIMEOUT_MS },
+    );
+
+    evalResult = evalOpRes.structuredContent;
+    if (!evalResult || evalResult.error) {
+      throw new Error(
+        `Değerlendirme başarısız: ${evalResult?.error || "Bilinmeyen Hata"}`,
+      );
+    }
+
+    // Mark step 4 as completed and save state
+    state.step_4_eval = "completed";
+    state.evalResult = evalResult;
+    await saveState(runDir, state);
   }
 
-  // Mark step 4 as completed and save state
-  state.step_4_eval = "completed";
-  state.evalResult = evalResult;
-  await saveState(runDir, state);
 
   // ─── Step 5: Tez Görselleştirmeleri (SHAP, Error Analysis, Word Cloud, t-SNE, Calibration) ───
   state.step_5_viz = state.step_5_viz || "pending";
@@ -1133,7 +1144,8 @@ async function runModularPipeline(datasetPath, pipelineMode = "ML") {
   // Run compare_ml_dl.py to generate cross-mode comparison report
   console.log("\n📊 ML vs DL karşılaştırma analizi tetikleniyor...");
   try {
-    execSync("python compare_ml_dl.py", { stdio: "inherit" });
+    const pyCmd = process.env.PYTHON_PATH || "python";
+    execSync(`"${pyCmd}" compare_ml_dl.py`, { stdio: "inherit" });
   } catch (err) {
     console.warn(
       "⚠️ ML vs DL karşılaştırma raporu üretilemedi (Henüz diğer mod tamamlanmamış olabilir):",

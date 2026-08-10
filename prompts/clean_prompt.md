@@ -10,7 +10,7 @@ TASK:
 - Write a dynamically tailored Python script that cleans the dataset.
 - Ignore all other columns in the dataset, but extract 4 metadata features directly from the raw text column BEFORE text cleaning/normalization:
   - 'url_count': Total count of URLs/links (e.g., matching 'http', 'https', 'www', or domain extensions like '.com', '.org', '.net') in the email raw text.
-  - 'has_ip': 1 if the email text contains an IP address pattern (e.g., matching a standard IPv4 regex like '\\b\\d{1,3}\\.\\\d{1,3}\\.\\\d{1,3}\\.\\\d{1,3}\\b'), otherwise 0.
+  - 'has_ip': 1 if the email text contains an IP address pattern. Use a Python raw string regex: r'\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b' (standard IPv4 pattern). Return 1 if found, otherwise 0.
   - 'urgency_score': Total frequency count of threat/urgency keywords (case-insensitive) like: 'verify', 'suspend', 'update', 'password', 'urgent', 'immediate', 'security', 'warning', 'action required', 'alert'.
   - 'has_html': 1 if the email text contains HTML markers or tags (e.g., '<', '>', 'href', 'html', 'div', 'img'), otherwise 0.
 - Ensure the label column is mapped to binary integer values (1 for phishing/spam variants, 0 for safe/ham variants).

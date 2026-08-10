@@ -38,93 +38,38 @@ TEST DATA LOADING RULES:
         # and similarly for predict_proba if needed...
     ```
 - If Mode is 'DL':
-  - Models are loaded from "${models_dir}/[model_name].h5". Use `tensorflow.keras.models.load_model()`.
-  - CRITICAL (loading auto_model): Since a custom `BahdanauAttention` layer and several functional keras/tensor operations (which serialize as `ExpandDims`, `Sum`, and `Multiply` layers) are used in the `auto_model.h5` model, you must define these custom classes in the evaluation script and pass them in `custom_objects` when loading the model.
-    Add the following custom class definitions to the beginning of the script:
+  - Models are trained and saved using **Keras/TensorFlow** at `${models_dir}/[model_name].h5`.
+  - CRITICAL: Add this block at the TOP of your script (before any other imports):
     ```python
+    import os
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
     import tensorflow as tf
-    import keras
-
-    class BahdanauAttention(tf.keras.layers.Layer):
-        def __init__(self, units, **kwargs):
-            super(BahdanauAttention, self).__init__(**kwargs)
-            self.units = units
-            self.W1 = tf.keras.layers.Dense(units)
-            self.W2 = tf.keras.layers.Dense(units)
-            self.V = tf.keras.layers.Dense(1)
-
-        def call(self, query, values):
-            query_with_time_axis = tf.expand_dims(query, 1)
-            score = self.V(tf.nn.tanh(self.W1(query_with_time_axis) + self.W2(values)))
-            attention_weights = tf.nn.softmax(score, axis=1)
-            context_vector = attention_weights * values
-            context_vector = tf.reduce_sum(context_vector, axis=1)
-            return context_vector
-
-        def get_config(self):
-            config = super(BahdanauAttention, self).get_config()
-            config.update({"units": self.units})
-            return config
-
-    class ExpandDims(tf.keras.layers.Layer):
-        def __init__(self, axis, **kwargs):
-            super().__init__(**kwargs)
-            self.axis = axis
-        def call(self, inputs, **kwargs):
-            return tf.expand_dims(inputs, axis=self.axis)
-        def get_config(self):
-            config = super().get_config()
-            config.update({"axis": self.axis})
-            return config
-
-    class Sum(tf.keras.layers.Layer):
-        def __init__(self, axis, keepdims=False, **kwargs):
-            super().__init__(**kwargs)
-            self.axis = axis
-            self.keepdims = keepdims
-        def call(self, inputs, **kwargs):
-            return tf.reduce_sum(inputs, axis=self.axis, keepdims=self.keepdims)
-        def get_config(self):
-            config = super().get_config()
-            config.update({"axis": self.axis, "keepdims": self.keepdims})
-            return config
-
-    class PatchedMultiply(tf.keras.layers.Layer):
-        """
-        Keras 3-compatible element-wise multiply layer.
-        IMPORTANT: Functional model configs deserialized from H5 files might call the layer
-        with multiple positional arguments (e.g. layer(t1, t2)) instead of a single list (e.g. layer([t1, t2])).
-        To prevent 'TypeError: too many positional arguments' during Keras 3 signature binding
-        (inside CallSpec.bind), the call() method signature MUST accept variadic positional arguments (*args).
-        """
-        def call(self, inputs, *args, **kwargs):
-            if args:
-                all_inputs = [inputs] + list(args)
-            elif isinstance(inputs, (list, tuple)):
-                all_inputs = list(inputs)
-            else:
-                all_inputs = [inputs]
-            
-            result = all_inputs[0]
-            for t in all_inputs[1:]:
-                result = result * t
-            return result
-
-        def get_config(self):
-            return super().get_config()
+    gpus = tf.config.list_physical_devices('GPU')
+    if gpus:
+        for gpu in gpus:
+            tf.config.experimental.set_memory_growth(gpu, True)
+    from tensorflow import keras
     ```
-    When loading `"auto_model"`, use:
+  - CRITICAL: The `auto_model` may use custom Keras layers. To handle unknown layers gracefully, wrap load_model with custom_objects and a fallback:
     ```python
-    model = tf.keras.models.load_model(model_path, custom_objects={
-        'BahdanauAttention': BahdanauAttention,
-        'ExpandDims': ExpandDims,
-        'Sum': Sum,
-        'Multiply': PatchedMultiply
-    })
+    def load_dl_model(model_path):
+        try:
+            return keras.models.load_model(model_path)
+        except Exception:
+            # Fallback: try with compile=False for models with custom metrics
+            return keras.models.load_model(model_path, compile=False)
     ```
-  - The model output size for binary classification can be either 2 columns (Softmax) or 1 column (Sigmoid). If the output has 2 columns, take the 1st column (phishing probability, e.g., `preds[:, 1]`). If it has 1 column, use it directly.
+  - Load each model: `model = load_dl_model(model_path)` then `model.trainable = False`.
+  - For predictions, process in batches of 512:
+    ```python
+    proba = model.predict(X_test, batch_size=512, verbose=0).ravel()
+    preds = (proba >= 0.5).astype(int)
+    ```
+  - Use `proba` directly as positive-class score for ROC AUC computation: `roc_curve(y_true, proba)`.
+  - CRITICAL WINDOWS: Do NOT use `multiprocessing` or `threading` to parallelize predictions. Run sequentially.
 - ERROR HANDLING:
   - If an error occurs during model loading or prediction, DO NOT silently generate mock predictions! Raise the exception or exit the script with a non-zero exit code so that the self-healing mechanism can detect and fix the issue.
+
 
 GRAPHICAL AND JSON REQUIREMENTS:
 - IMPORTANT: All text, titles, labels, legends, axis markings, and ticks in the generated plots MUST be written in English (suitable for international academic journals).

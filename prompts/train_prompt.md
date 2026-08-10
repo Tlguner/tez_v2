@@ -23,7 +23,7 @@ TASK:
 
 - LOADING HYPERPARAMETERS:
   - Load the pre-tuned hyperparameters from '${best_params_json_path}' using python `json` module.
-  - Retrieve parameters for `LogisticRegression`, `RandomForestClassifier`, `LinearSVC`, `SGDClassifier`, and `auto_model`.
+  - Retrieve parameters for `LogisticRegression`, `MultinomialNB`, `GaussianNB`, `RandomForestClassifier`, `LinearSVC`, `SGDClassifier`, and `auto_model`.
   - If the file is missing or values are empty, fallback to reasonable defaults.
 
 - DONANIM KAYNAK İZLEME (RESOURCE MONITORING - MANDATORY):
@@ -38,9 +38,9 @@ TASK:
   - Ensure the models directory '${models_dir}' exists (create if missing).
   - Measure training time (in seconds) for each final model fitting step.
   - Train the final baseline / optimized models on the full training set using the loaded hyperparameters:
-    1. LogisticRegression (Optimized) -> Save to '${models_dir}/LogisticRegression.pkl'
-    2. MultinomialNB (Baseline, no optimization parameters needed) -> Save to '${models_dir}/MultinomialNB.pkl'
-    3. GaussianNB (Baseline, no optimization parameters needed) -> Save to '${models_dir}/GaussianNB.pkl'
+    1. LogisticRegression (Optimized via Optuna: C, solver) -> Save to '${models_dir}/LogisticRegression.pkl'
+    2. MultinomialNB (Optimized via Optuna: alpha) -> Save to '${models_dir}/MultinomialNB.pkl'
+    3. GaussianNB (Optimized via Optuna: var_smoothing) -> Save to '${models_dir}/GaussianNB.pkl'
        - CRITICAL: GaussianNB does NOT support sparse matrices. Convert sparse TF-IDF to dense using `.toarray()` ONLY for GaussianNB's fit and predict steps.
     4. RandomForestClassifier (Optimized) -> Save to '${models_dir}/RandomForestClassifier.pkl'
     5. LinearSVC (Optimized) -> Save to '${models_dir}/LinearSVC.pkl'
