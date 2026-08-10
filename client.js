@@ -1082,7 +1082,9 @@ async function runModularPipeline(datasetPath, pipelineMode = "ML") {
 
     const runFiles = await fs.readdir(runDir);
     for (const file of runFiles) {
-      await fs.copyFile(path.join(runDir, file), path.join(latestDir, file));
+      await fs.cp(path.join(runDir, file), path.join(latestDir, file), {
+        recursive: true,
+      });
     }
     console.log("✅ 'latest/' başarıyla güncellendi.");
   } catch (copyErr) {
