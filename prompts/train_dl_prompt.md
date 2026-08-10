@@ -79,8 +79,23 @@ SAVING MODELS:
   - auto_model   -> '${models_dir}/auto_model.h5'
 
 EVALUATION (on test set after training):
-- Evaluate model on test set using `model.eval()` and `with torch.no_grad():`.
-- Compute probability outputs on `device`, move to CPU numpy arrays: `probs = model(test_x).cpu().numpy().ravel()`, `preds = (probs >= 0.5).astype(int)`.
+- CRITICAL GPU MEMORY RULE: To prevent CUDA OutOfMemoryError, DO NOT pass the entire test set in a single forward pass (`model(test_x)`).
+- Instead, process the test set in **batches of 512** using `model.eval()` and `with torch.no_grad():`:
+  ```python
+  model.eval()
+  all_probs = []
+  with torch.no_grad():
+      for i in range(0, len(X_test), 512):
+          batch_x = torch.tensor(X_test[i:i+512], dtype=torch.long).to(device)
+          outputs = model(batch_x)
+          if outputs.shape[-1] == 1:
+              probs = outputs.squeeze(-1)
+          else:
+              probs = torch.softmax(outputs, dim=-1)[:, 1]
+          all_probs.append(probs.cpu().numpy())
+  proba = np.concatenate(all_probs).ravel()
+  preds = (proba >= 0.5).astype(int)
+  ```
 - Calculate `accuracy`, `precision`, `recall`, `f1` using `sklearn.metrics`.
 - Record `time_s` (wall-clock training time in seconds).
 
