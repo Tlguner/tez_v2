@@ -73,6 +73,19 @@ async function generateContentWithRetry(model, prompt, retries = 10, delayMs = 5
   }
 }
 
+function logHealingEvent(event) {
+  try {
+    const logPath = path.join(__dirname, "healing_log.jsonl");
+    const entry = JSON.stringify({
+      timestamp: new Date().toISOString(),
+      ...event,
+    }) + "\n";
+    fsSync.appendFileSync(logPath, entry, "utf8");
+  } catch (e) {
+    console.error("⚠️ Failed to write healing log:", e.message);
+  }
+}
+
 async function runPythonSelfHealing(pythonCmd, args, scriptPath, mode = "Auto") {
   let attempt = 1;
   const maxAttempts = 3; // Allows running the patched code and trying multiple self-healing loops if needed
@@ -81,10 +94,29 @@ async function runPythonSelfHealing(pythonCmd, args, scriptPath, mode = "Auto") 
     try {
       console.error(`▶ [Attempt ${attempt}/${maxAttempts}] Running Python script (${mode})...`);
       const result = await runPython(pythonCmd, args);
+      
+      // Log successful execution (record if it succeeded directly or after healing)
+      logHealingEvent({
+        mode,
+        script: path.basename(scriptPath),
+        attempt,
+        strategy: attempt === 1 ? "direct_success" : (attempt === 2 ? "level_1_patch" : "level_2_rewrite"),
+        success: true
+      });
+
       return { ok: true, result }; // Başarılıysa anında dön
     } catch (err) {
       const errorText = err.toString();
       console.error(`❌ Python execution failed (Attempt ${attempt}):\n${errorText}`);
+
+      logHealingEvent({
+        mode,
+        script: path.basename(scriptPath),
+        attempt,
+        strategy: attempt === 1 ? "level_1_patch" : (attempt === 2 ? "level_2_rewrite" : "failed_max_attempts"),
+        success: false,
+        error_summary: errorText.substring(0, 200).replace(/\n/g, " ")
+      });
 
       if (attempt === 1) {
         // LEVEL 1 — PATCH MODE
