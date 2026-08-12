@@ -23,11 +23,31 @@ if hasattr(sys.stderr, 'buffer'):
 
 PLOTS_DIR = "thesis_pipeline/plots"
 RUN_DIR = "thesis_pipeline/DL/runs/run_2026-08-05_18-37-42"
-MASTER_JSON_PATH = os.path.join(PLOTS_DIR, "complete_thesis_summary.json")
-MASTER_PLOT_PATH = os.path.join(PLOTS_DIR, "external_vs_autonomous_comparison.png")
+LATEST_DIR = "thesis_pipeline/DL/latest"
+MASTER_JSON_PATH = os.path.join(RUN_DIR, "complete_thesis_summary.json")
+MASTER_PLOT_PATH = os.path.join(RUN_DIR, "external_vs_autonomous_comparison.png")
+
+import shutil
+
+def save_and_sync(src_filename):
+    src_path = os.path.join(PLOTS_DIR, src_filename)
+    if os.path.exists(src_path):
+        shutil.copy(src_path, os.path.join(RUN_DIR, src_filename))
+        if os.path.exists(LATEST_DIR):
+            shutil.copy(src_path, os.path.join(LATEST_DIR, src_filename))
 
 def main():
     print("\n--- Aggregating Master Thesis Summary Metrics ---")
+    
+    # Sync all individual analysis outputs to RUN_DIR and LATEST_DIR
+    for fname in [
+        "distilbert_baseline_results.json",
+        "cross_dataset_results.json",
+        "mcnemar_test_results.json",
+        "seed_stability_results.json",
+        "seed_stability_comparison.png"
+    ]:
+        save_and_sync(fname)
     
     # 1. Load DistilBERT results
     distilbert_path = os.path.join(PLOTS_DIR, "distilbert_baseline_results.json")
@@ -81,6 +101,10 @@ def main():
 
     with open(MASTER_JSON_PATH, "w", encoding="utf-8") as f:
         json.dump(master_summary, f, indent=2, ensure_ascii=False)
+    
+    shutil.copy(MASTER_JSON_PATH, os.path.join(PLOTS_DIR, "complete_thesis_summary.json"))
+    if os.path.exists(LATEST_DIR):
+        shutil.copy(MASTER_JSON_PATH, os.path.join(LATEST_DIR, "complete_thesis_summary.json"))
 
     print(f"✅ Complete thesis summary JSON saved to: {MASTER_JSON_PATH}")
 
@@ -109,7 +133,6 @@ def main():
     bars_speed = ax2.bar(models, times, color=['#e63946', '#2a9d8f', '#e76f51', '#457b9d'])
     ax2.set_ylabel('Training Time (Seconds)')
     ax2.set_title('Training Speed (Lower is Better)', fontweight='bold')
-    ax2.set_xticklabels(models, fontsize=9)
     ax2.grid(True, linestyle='--', alpha=0.4, axis='y')
     for bar in bars_speed:
         yval = bar.get_height()
@@ -120,7 +143,6 @@ def main():
     bars_size = ax3.bar(models, sizes, color=['#d90429', '#06d6a0', '#118ab2', '#ffd166'])
     ax3.set_ylabel('Model Size (MB)')
     ax3.set_title('Model Footprint / Storage Size', fontweight='bold')
-    ax3.set_xticklabels(models, fontsize=9)
     ax3.grid(True, linestyle='--', alpha=0.4, axis='y')
     for bar in bars_size:
         yval = bar.get_height()
@@ -129,6 +151,10 @@ def main():
     plt.tight_layout()
     plt.savefig(MASTER_PLOT_PATH, dpi=300)
     plt.close()
+    
+    shutil.copy(MASTER_PLOT_PATH, os.path.join(PLOTS_DIR, "external_vs_autonomous_comparison.png"))
+    if os.path.exists(LATEST_DIR):
+        shutil.copy(MASTER_PLOT_PATH, os.path.join(LATEST_DIR, "external_vs_autonomous_comparison.png"))
 
     print(f"✅ Comparison plot saved to: {MASTER_PLOT_PATH}")
 
