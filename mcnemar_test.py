@@ -68,10 +68,12 @@ def get_dl_predictions(model_name, X_test):
     return (proba >= 0.5).astype(int)
 
 def get_ml_predictions():
-    # Load ML test features (X_test.npz) and best ML model (VotingClassifier) from run_2026-08-04_12-17-11
+    # Load ML test features (X_test.npz) and best ML model from ML_RUN_DIR
     ml_x_path = os.path.join(ML_RUN_DIR, "X_test.npz")
     ml_models_dir = os.path.join(ML_RUN_DIR, "models")
-    ml_model_path = os.path.join(ml_models_dir, "VotingClassifier.pkl")
+    ml_model_path = os.path.join(ml_models_dir, "LogisticRegression.pkl")
+    if not os.path.exists(ml_model_path):
+        ml_model_path = os.path.join(ml_models_dir, "VotingClassifier.pkl")
     if not os.path.exists(ml_model_path):
         ml_model_path = os.path.join(ml_models_dir, "votingclassifier.pkl")
     

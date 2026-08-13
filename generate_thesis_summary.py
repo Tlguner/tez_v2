@@ -22,19 +22,22 @@ if hasattr(sys.stderr, 'buffer'):
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
 PLOTS_DIR = "thesis_pipeline/plots"
-RUN_DIR = "thesis_pipeline/DL/runs/run_2026-08-05_18-37-42"
-LATEST_DIR = "thesis_pipeline/DL/latest"
-MASTER_JSON_PATH = os.path.join(RUN_DIR, "complete_thesis_summary.json")
-MASTER_PLOT_PATH = os.path.join(RUN_DIR, "external_vs_autonomous_comparison.png")
+DL_RUN_DIR = "thesis_pipeline/DL/runs/run_2026-08-05_18-37-42"
+DL_LATEST_DIR = "thesis_pipeline/DL/latest"
+ML_RUN_DIR = "thesis_pipeline/ML/runs/run_2026-08-13_10-50-39"
+ML_LATEST_DIR = "thesis_pipeline/ML/latest"
+
+MASTER_JSON_PATH = os.path.join(DL_RUN_DIR, "complete_thesis_summary.json")
+MASTER_PLOT_PATH = os.path.join(DL_RUN_DIR, "external_vs_autonomous_comparison.png")
 
 import shutil
 
 def save_and_sync(src_filename):
     src_path = os.path.join(PLOTS_DIR, src_filename)
     if os.path.exists(src_path):
-        shutil.copy(src_path, os.path.join(RUN_DIR, src_filename))
-        if os.path.exists(LATEST_DIR):
-            shutil.copy(src_path, os.path.join(LATEST_DIR, src_filename))
+        for target_dir in [DL_RUN_DIR, DL_LATEST_DIR, ML_RUN_DIR, ML_LATEST_DIR]:
+            if os.path.exists(target_dir):
+                shutil.copy(src_path, os.path.join(target_dir, src_filename))
 
 def main():
     print("\n--- Aggregating Master Thesis Summary Metrics ---")
@@ -57,7 +60,7 @@ def main():
             distilbert_data = json.load(f)
 
     # 2. Load Autonomous DL results
-    dl_results_path = os.path.join(RUN_DIR, "auto_ML_results.json")
+    dl_results_path = os.path.join(DL_RUN_DIR, "auto_ML_results.json")
     dl_results_data = {}
     if os.path.exists(dl_results_path):
         with open(dl_results_path, "r", encoding="utf-8") as f:
@@ -102,9 +105,9 @@ def main():
     with open(MASTER_JSON_PATH, "w", encoding="utf-8") as f:
         json.dump(master_summary, f, indent=2, ensure_ascii=False)
     
-    shutil.copy(MASTER_JSON_PATH, os.path.join(PLOTS_DIR, "complete_thesis_summary.json"))
-    if os.path.exists(LATEST_DIR):
-        shutil.copy(MASTER_JSON_PATH, os.path.join(LATEST_DIR, "complete_thesis_summary.json"))
+    for tdir in [PLOTS_DIR, DL_LATEST_DIR, ML_RUN_DIR, ML_LATEST_DIR]:
+        if os.path.exists(tdir):
+            shutil.copy(MASTER_JSON_PATH, os.path.join(tdir, "complete_thesis_summary.json"))
 
     print(f"✅ Complete thesis summary JSON saved to: {MASTER_JSON_PATH}")
 
@@ -152,9 +155,9 @@ def main():
     plt.savefig(MASTER_PLOT_PATH, dpi=300)
     plt.close()
     
-    shutil.copy(MASTER_PLOT_PATH, os.path.join(PLOTS_DIR, "external_vs_autonomous_comparison.png"))
-    if os.path.exists(LATEST_DIR):
-        shutil.copy(MASTER_PLOT_PATH, os.path.join(LATEST_DIR, "external_vs_autonomous_comparison.png"))
+    for tdir in [PLOTS_DIR, DL_LATEST_DIR, ML_RUN_DIR, ML_LATEST_DIR]:
+        if os.path.exists(tdir):
+            shutil.copy(MASTER_PLOT_PATH, os.path.join(tdir, "external_vs_autonomous_comparison.png"))
 
     print(f"✅ Comparison plot saved to: {MASTER_PLOT_PATH}")
 

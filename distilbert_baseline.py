@@ -165,7 +165,7 @@ def main():
         "model_name": "DistilBERT (distilbert-base-uncased)",
         "type": "External Baseline (HuggingFace Pre-trained Transformer)",
         "parameters": "66,364,418 (66M)",
-        "model_size_mb": ~260,
+        "model_size_mb": 260,
         "accuracy": round(acc, 4),
         "precision": round(prec, 4),
         "recall": round(rec, 4),
