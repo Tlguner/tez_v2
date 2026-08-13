@@ -1154,6 +1154,18 @@ async function runModularPipeline(datasetPath, pipelineMode = "ML") {
       err.message,
     );
   }
+
+  // Run post_training_pipeline.py for full thesis evaluation suite (Cross-dataset, McNemar, Seeds, Summary)
+  console.log("\n🧪 Post-training Tez Değerlendirme Suite (Cross-Dataset, McNemar, Multi-Seed, Master Summary) çalıştırılıyor...");
+  try {
+    const pyCmd = process.env.PYTHON_PATH || "python";
+    execSync(`"${pyCmd}" post_training_pipeline.py "${runDir}" "${pipelineMode}"`, { stdio: "inherit" });
+  } catch (err) {
+    console.warn(
+      "⚠️ Post-training tez değerlendirme suite sırasında uyarı:",
+      err.message,
+    );
+  }
 }
 
 main();
