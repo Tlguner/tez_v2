@@ -187,8 +187,24 @@ def predict_proba_model(model, name, features):
             return 1 / (1 + np.exp(-decision))
         return None
     else:
-        probs = model.predict(features, verbose=0).ravel()
-        return probs
+        if isinstance(model, nn.Module) or hasattr(model, 'eval'):
+            model.to(device)
+            model.eval()
+            feat_tensor = torch.tensor(features, dtype=torch.long)
+            all_probs = []
+            with torch.no_grad():
+                for i in range(0, len(feat_tensor), 512):
+                    batch_x = feat_tensor[i:i+512].to(device)
+                    outputs = model(batch_x)
+                    if outputs.shape[-1] == 1:
+                        probs = outputs.squeeze(-1)
+                    else:
+                        probs = torch.softmax(outputs, dim=-1)[:, 1]
+                    all_probs.append(probs.cpu().numpy())
+            return np.concatenate(all_probs).ravel()
+        elif hasattr(model, "predict"):
+            return model.predict(features, verbose=0).ravel()
+        return None
 
 # --- TASK 1: SHAP ---
 print("[INFO] TASK 1: Starting SHAP feature importance...")
