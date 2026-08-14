@@ -49,15 +49,24 @@ def main():
     
     # 2. Run McNemar Statistical Significance Test
     print("\n📌 [2/4] Running McNemar Statistical Significance Test...")
-    run_cmd([py_cmd, "mcnemar_test.py"])
+    cmd_mcnemar = [py_cmd, "mcnemar_test.py"]
+    if target_run_dir:
+        cmd_mcnemar.append(target_run_dir)
+    run_cmd(cmd_mcnemar)
     
     # 3. Run Multiple Random Seeds Stability Evaluation
     print("\n📌 [3/4] Running Multiple Random Seeds Stability Evaluation (5 Seeds)...")
-    run_cmd([py_cmd, "multiple_seed_eval.py"])
+    cmd_seeds = [py_cmd, "multiple_seed_eval.py"]
+    if target_run_dir:
+        cmd_seeds.append(target_run_dir)
+    run_cmd(cmd_seeds)
 
     # 4. Generate Master Summary & Plot
     print("\n📌 [4/4] Generating Master Thesis Summary & Comparison Charts...")
-    run_cmd([py_cmd, "generate_thesis_summary.py"])
+    cmd_summary = [py_cmd, "generate_thesis_summary.py"]
+    if target_run_dir:
+        cmd_summary.append(target_run_dir)
+    run_cmd(cmd_summary)
 
     # If specific run_dir is provided, sync all generated artifacts into it
     plots_dir = "thesis_pipeline/plots"
