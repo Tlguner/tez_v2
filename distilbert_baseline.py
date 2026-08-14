@@ -161,11 +161,16 @@ def main():
     f1 = float(f1_score(test_labels, all_preds, zero_division=0))
     auc = float(roc_auc_score(test_labels, all_probs))
     
+    # Save model and measure exact disk size
+    model_save_path = os.path.join(PLOTS_DIR, "distilbert_model.pt")
+    torch.save(model.state_dict(), model_save_path)
+    model_size_mb = round(os.path.getsize(model_save_path) / (1024 * 1024), 2)
+    
     results = {
         "model_name": "DistilBERT (distilbert-base-uncased)",
         "type": "External Baseline (HuggingFace Pre-trained Transformer)",
         "parameters": "66,364,418 (66M)",
-        "model_size_mb": 260,
+        "model_size_mb": model_size_mb,
         "accuracy": round(acc, 4),
         "precision": round(prec, 4),
         "recall": round(rec, 4),

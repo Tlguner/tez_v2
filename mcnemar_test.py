@@ -40,9 +40,10 @@ except Exception:
 def find_latest_run(mode="DL"):
     runs_dir = f"thesis_pipeline/{mode}/runs"
     if os.path.exists(runs_dir):
-        all_runs = sorted(glob.glob(os.path.join(runs_dir, "run_*")))
-        if all_runs:
-            return all_runs[-1]
+        valid = [r for r in glob.glob(os.path.join(runs_dir, "run_*")) if os.path.exists(os.path.join(r, "models")) and os.path.exists(os.path.join(r, "auto_ML_results.json"))]
+        valid.sort(key=lambda x: os.path.basename(x).replace("-", "").replace("_", ""))
+        if valid:
+            return valid[-1]
     latest = f"thesis_pipeline/{mode}/latest"
     if os.path.exists(latest):
         return latest
