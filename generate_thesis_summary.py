@@ -42,6 +42,30 @@ ML_RUN_DIR = ML_VALID[-1] if ML_VALID else "thesis_pipeline/ML/latest"
 DL_LATEST_DIR = "thesis_pipeline/DL/latest"
 ML_LATEST_DIR = "thesis_pipeline/ML/latest"
 
+def find_model_file_on_disk(models_dir, model_name):
+    """Finds the actual model file on disk by handling variations in names (e.g. 'TextCNN (Multi-Kernel Conv1D)' -> 'text_cnn.h5')."""
+    if not os.path.exists(models_dir):
+        return None
+    # Normalize model name for filename lookup
+    clean_name = model_name.lower().split()[0].replace("(", "").replace(")", "").replace("-", "_")
+    norm_name = clean_name.replace("_", "")
+    
+    files = [f for f in os.listdir(models_dir) if f.endswith(('.pt', '.h5', '.pkl', '.joblib'))]
+    
+    # 1. Exact normalized match (e.g. 'textcnn' == 'text_cnn' without underscores)
+    for f in files:
+        base_norm = os.path.splitext(f)[0].lower().replace("_", "")
+        if base_norm == norm_name:
+            return os.path.join(models_dir, f)
+            
+    # 2. Exact prefix / substring match
+    for f in files:
+        base_norm = os.path.splitext(f)[0].lower().replace("_", "")
+        if norm_name in base_norm or base_norm in norm_name:
+            return os.path.join(models_dir, f)
+                
+    return None
+
 def get_file_size_mb(filepath):
     if filepath and os.path.exists(filepath):
         return round(os.path.getsize(filepath) / (1024 * 1024), 2)
@@ -161,16 +185,18 @@ def main():
         top_dl_time = float(top_dl_m.get("time_s", 0))
         top_dl_vram = float(top_dl_m.get("max_ram_mb", top_dl_m.get("avg_ram_mb", 0)))
         
-        m_file = os.path.join(active_dl_dir, "models", f"{top_dl_name}.pt")
-        if not os.path.exists(m_file):
-            m_file = os.path.join(active_dl_dir, "models", f"{top_dl_name}.h5")
-        top_dl_size = get_file_size_mb(m_file) or 8.5
+        m_file = find_model_file_on_disk(os.path.join(active_dl_dir, "models"), top_dl_name)
+        top_dl_size = get_file_size_mb(m_file)
+        if top_dl_size is not None:
+            print(f"[INFO] Measured disk size for {top_dl_name}: {top_dl_size} MB (file: {os.path.basename(m_file)})")
+        else:
+            print(f"[WARN] No disk file found for {top_dl_name}, omitting size.")
 
         models_to_plot.append(f"{top_dl_name}\n(Best DL)")
         accs.append(top_dl_acc)
         recalls.append(top_dl_rec)
         times.append(top_dl_time)
-        sizes.append(top_dl_size)
+        sizes.append(top_dl_size if top_dl_size is not None else 0.0)
 
     # C. auto_model (DL)
     auto_m = None
@@ -186,16 +212,16 @@ def main():
         auto_rec = raw_rec * 100 if raw_rec <= 1.0 else raw_rec
         auto_time = float(auto_m.get("time_s", 0))
         
-        auto_file = os.path.join(active_dl_dir, "models", "auto_model.pt")
-        if not os.path.exists(auto_file):
-            auto_file = os.path.join(active_dl_dir, "models", "auto_model.h5")
-        auto_size = get_file_size_mb(auto_file) or 10.2
+        auto_file = find_model_file_on_disk(os.path.join(active_dl_dir, "models"), "auto_model")
+        auto_size = get_file_size_mb(auto_file)
+        if auto_size is not None:
+            print(f"[INFO] Measured disk size for auto_model: {auto_size} MB (file: {os.path.basename(auto_file)})")
 
         models_to_plot.append("auto_model\n(BiGRU+Attn)")
         accs.append(auto_acc)
         recalls.append(auto_rec)
         times.append(auto_time)
-        sizes.append(auto_size)
+        sizes.append(auto_size if auto_size is not None else 0.0)
 
     # D. Top ML Model (from real active ML run)
     top_ml_name = None
@@ -213,14 +239,16 @@ def main():
         top_ml_rec = raw_rec * 100 if raw_rec <= 1.0 else raw_rec
         top_ml_time = float(top_ml_m.get("time_s", 0))
         
-        ml_file = os.path.join(active_ml_dir, "models", f"{top_ml_name}.pkl")
-        top_ml_size = get_file_size_mb(ml_file) or 1.5
+        ml_file = find_model_file_on_disk(os.path.join(active_ml_dir, "models"), top_ml_name)
+        top_ml_size = get_file_size_mb(ml_file)
+        if top_ml_size is not None:
+            print(f"[INFO] Measured disk size for {top_ml_name}: {top_ml_size} MB (file: {os.path.basename(ml_file)})")
 
         models_to_plot.append(f"{top_ml_name}\n(Best ML)")
         accs.append(top_ml_acc)
         recalls.append(top_ml_rec)
         times.append(top_ml_time)
-        sizes.append(top_ml_size)
+        sizes.append(top_ml_size if top_ml_size is not None else 0.0)
 
     # Build Dynamic Takeaways (Strict comparisons only when metrics exist)
     takeaways = {}
