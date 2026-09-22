@@ -1,0 +1,44 @@
+{"timestamp":"2026-08-12T23:11:06.662Z","mode":"Dataset Clean","script":"clean_op_1786576249646.py","attempt":1,"strategy":"direct_success","success":true}
+{"timestamp":"2026-08-12T23:11:53.640Z","mode":"Feature Extraction","script":"feature_op_1786576283464.py","attempt":1,"strategy":"direct_success","success":true}
+{"timestamp":"2026-08-12T23:51:41.465Z","mode":"Model Training","script":"train_op_1786576346858.py","attempt":1,"strategy":"direct_success","success":true}
+{"timestamp":"2026-08-12T23:52:39.077Z","mode":"Model Training","script":"train_op_1786578726784.py","attempt":1,"strategy":"level_1_patch","success":false,"error_summary":"Error: Python exited with code 1. Stderr: Traceback (most recent call last):\r   File \"C:\\Users\\tolga\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\sklearn\\utils\\_available_if.py\", line 32,"}
+{"timestamp":"2026-08-12T23:54:10.898Z","mode":"Model Training","script":"train_op_1786578726784.py","attempt":2,"strategy":"level_1_patch","success":true}
+{"timestamp":"2026-08-12T23:55:00.125Z","mode":"Evaluation & Plots","script":"evaluate_op_1786578884352.py","attempt":1,"strategy":"direct_success","success":true}
+{"timestamp":"2026-08-12T23:56:38.951Z","mode":"Evaluation & Plots","script":"evaluate_op_1786578900131.py","attempt":1,"strategy":"direct_success","success":true}
+{"timestamp":"2026-08-13T07:51:12.861Z","mode":"Dataset Clean","script":"clean_op_1786607462671.py","attempt":1,"strategy":"direct_success","success":true}
+{"timestamp":"2026-08-13T07:51:51.770Z","mode":"Feature Extraction","script":"feature_op_1786607486641.py","attempt":1,"strategy":"direct_success","success":true}
+{"timestamp":"2026-08-13T08:31:22.272Z","mode":"Model Training","script":"train_op_1786607544360.py","attempt":1,"strategy":"direct_success","success":true}
+{"timestamp":"2026-08-13T08:33:39.958Z","mode":"Model Training","script":"train_op_1786609908083.py","attempt":1,"strategy":"direct_success","success":true}
+{"timestamp":"2026-08-13T08:35:26.536Z","mode":"Evaluation & Plots","script":"evaluate_op_1786610108439.py","attempt":1,"strategy":"direct_success","success":true}
+{"timestamp":"2026-08-13T08:55:20.096Z","mode":"Evaluation & Plots","script":"evaluate_op_1786610126541.py","attempt":1,"strategy":"direct_success","success":true}
+{"timestamp":"2026-08-13T13:35:13.799Z","mode":"Dataset Clean","script":"clean_op_1786628087694.py","attempt":1,"strategy":"direct_success","success":true}
+{"timestamp":"2026-08-13T13:37:01.949Z","mode":"Feature Extraction","script":"feature_op_1786628153554.py","attempt":1,"strategy":"direct_success","success":true}
+{"timestamp":"2026-08-13T14:33:07.308Z","mode":"Model Training","script":"train_op_1786628276387.py","attempt":1,"strategy":"direct_success","success":true}
+{"timestamp":"2026-08-13T15:41:01.975Z","mode":"Model Training","script":"train_op_1786635510789.py","attempt":1,"strategy":"direct_success","success":true}
+{"timestamp":"2026-08-13T15:42:09.775Z","mode":"Evaluation & Plots","script":"evaluate_op_1786635702189.py","attempt":1,"strategy":"direct_success","success":true}
+{"timestamp":"2026-08-13T15:47:11.320Z","mode":"Evaluation & Plots","script":"evaluate_op_1786635729786.py","attempt":1,"strategy":"direct_success","success":true}
+{"timestamp":"2026-08-13T22:52:36.139Z","mode":"Dataset Clean","script":"clean_op_1786661539125.py","attempt":1,"strategy":"direct_success","success":true}
+{"timestamp":"2026-08-13T22:53:15.223Z","mode":"Feature Extraction","script":"feature_op_1786661571257.py","attempt":1,"strategy":"direct_success","success":true}
+{"timestamp":"2026-08-13T22:56:28.236Z","mode":"Model Training","script":"train_op_1786661630413.py","attempt":1,"strategy":"direct_success","success":true}
+{"timestamp":"2026-08-13T22:58:52.569Z","mode":"Model Training","script":"train_op_1786661830399.py","attempt":1,"strategy":"direct_success","success":true}
+{"timestamp":"2026-08-13T23:00:04.253Z","mode":"Evaluation & Plots","script":"evaluate_op_1786661979739.py","attempt":1,"strategy":"direct_success","success":true}
+{"timestamp":"2026-08-13T23:01:12.891Z","mode":"Evaluation & Plots","script":"evaluate_op_1786662004260.py","attempt":1,"strategy":"direct_success","success":true}
+{"timestamp":"2026-08-13T23:45:04.388Z","mode":"Dataset Clean","script":"clean_op_1786664675260.py","attempt":1,"strategy":"direct_success","success":true}
+{"timestamp":"2026-08-13T23:45:46.762Z","mode":"Feature Extraction","script":"feature_op_1786664718810.py","attempt":1,"strategy":"direct_success","success":true}
+{"timestamp":"2026-08-13T23:50:40.715Z","mode":"Model Training","script":"train_op_1786664771193.py","attempt":1,"strategy":"direct_success","success":true}
+{"timestamp":"2026-08-14T00:03:31.913Z","mode":"Model Training","script":"train_op_1786665090500.py","attempt":1,"strategy":"direct_success","success":true}
+{"timestamp":"2026-08-14T00:05:02.138Z","mode":"Evaluation & Plots","script":"evaluate_op_1786665855909.py","attempt":1,"strategy":"direct_success","success":true}
+{"timestamp":"2026-08-14T00:07:58.085Z","mode":"Evaluation & Plots","script":"evaluate_op_1786665902144.py","attempt":1,"strategy":"direct_success","success":true}
+{"timestamp":"2026-08-19T10:36:04.181Z","mode":"Dataset Clean","script":"clean_op_1787135753818.py","attempt":1,"strategy":"direct_success","success":true}
+{"timestamp":"2026-08-19T10:38:06.654Z","mode":"Feature Extraction","script":"feature_op_1787135816835.py","attempt":1,"strategy":"direct_success","success":true}
+{"timestamp":"2026-08-19T10:41:09.825Z","mode":"Model Training","script":"train_op_1787135964598.py","attempt":1,"strategy":"direct_success","success":true}
+{"timestamp":"2026-08-19T10:43:55.986Z","mode":"Model Training","script":"train_op_1787136171695.py","attempt":1,"strategy":"direct_success","success":true}
+{"timestamp":"2026-08-19T10:45:53.588Z","mode":"Evaluation & Plots","script":"evaluate_op_1787136335533.py","attempt":1,"strategy":"direct_success","success":true}
+{"timestamp":"2026-08-19T10:46:55.713Z","mode":"Evaluation & Plots","script":"evaluate_op_1787136353593.py","attempt":1,"strategy":"direct_success","success":true}
+{"timestamp":"2026-08-19T11:05:04.741Z","mode":"Dataset Clean","script":"clean_op_1787137475084.py","attempt":1,"strategy":"direct_success","success":true}
+{"timestamp":"2026-08-19T11:06:09.223Z","mode":"Feature Extraction","script":"feature_op_1787137535442.py","attempt":1,"strategy":"direct_success","success":true}
+{"timestamp":"2026-08-19T11:23:40.822Z","mode":"Model Training","script":"train_op_1787138620553.py","attempt":1,"strategy":"level_1_patch","success":false,"error_summary":"Error: Python exited with code 1. Stderr:   File \"C:\\TU\\deu\\tez_v2\\scraped data\\phishing_mcp_server\\train_op_1787138620553.py\", line 258\r     nonlocal vocab_size, embed_dim\r     ^^^^^^^^^^^^^^^^^^^^^^"}
+{"timestamp":"2026-08-19T11:31:37.457Z","mode":"Model Training","script":"train_op_1787138620553.py","attempt":2,"strategy":"level_1_patch","success":true}
+{"timestamp":"2026-08-19T11:37:59.058Z","mode":"Model Training","script":"train_op_1787139160884.py","attempt":1,"strategy":"direct_success","success":true}
+{"timestamp":"2026-08-19T11:47:17.457Z","mode":"Evaluation & Plots","script":"evaluate_op_1787140007698.py","attempt":1,"strategy":"direct_success","success":true}
+{"timestamp":"2026-08-19T11:49:23.724Z","mode":"Evaluation & Plots","script":"evaluate_op_1787140037466.py","attempt":1,"strategy":"direct_success","success":true}

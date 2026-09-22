@@ -1,0 +1,257 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 510"
+     style="font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif; background:#ffffff;">
+  <defs>
+    <!-- Arrow marker — thin, editorial -->
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,1.5 L9,5 L0,8.5 Z" fill="#64748b"/>
+    </marker>
+    <!-- Small vertical arrow -->
+    <marker id="arr-sm" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M0,1.5 L9,5 L0,8.5 Z" fill="#94a3b8"/>
+    </marker>
+  </defs>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       TIER 1 — AGENT & ORCHESTRATION LAYER   y=12 h=104
+  ══════════════════════════════════════════════════════════════════ -->
+  <!-- Dashed boundary -->
+  <rect x="12" y="12" width="856" height="104" rx="6"
+        fill="#fafafa" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="5,3"/>
+  <!-- Tier label mask + text -->
+  <rect x="24" y="5" width="198" height="15" fill="#ffffff"/>
+  <text x="28" y="16"
+        style="font-size:8.5px;font-family:'JetBrains Mono',monospace;font-weight:700;
+               fill:#64748b;letter-spacing:0.07em;text-transform:uppercase;">
+    Tier 1 · Agent &amp; Orchestration
+  </text>
+
+  <!-- Box: User CLI -->
+  <rect x="24" y="26" width="192" height="78" rx="5"
+        fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
+  <text x="34" y="46" style="font-size:10.5px;font-weight:600;fill:#0f172a;">User CLI</text>
+  <rect x="34" y="52" width="52" height="13" rx="2" fill="#f1f5f9"/>
+  <text x="38" y="62"
+        style="font-size:8.5px;font-family:'JetBrains Mono',monospace;fill:#475569;">client.js</text>
+  <text x="34" y="78" style="font-size:8.5px;fill:#64748b;">AutoML / AutoDL modes,</text>
+  <text x="34" y="90" style="font-size:8.5px;fill:#64748b;">CLI execution loop.</text>
+
+  <!-- Box: Gemini Agent — FOCAL (coral/atomic-tangerine) -->
+  <rect x="232" y="26" width="416" height="78" rx="5"
+        fill="#fff9f7" stroke="#eb6c36" stroke-width="1.5"/>
+  <text x="242" y="46"
+        style="font-size:11px;font-weight:700;fill:#eb6c36;">Gemini AI Agent (Controller)</text>
+  <rect x="242" y="52" width="130" height="13" rx="2" fill="#fff0e8"/>
+  <text x="246" y="62"
+        style="font-size:8.5px;font-family:'JetBrains Mono',monospace;font-weight:600;fill:#eb6c36;">gemini-3.6/3.7-flash</text>
+  <text x="242" y="78" style="font-size:8.5px;fill:#64748b;">Synthesizes dynamic Python code, reasons over</text>
+  <text x="242" y="90" style="font-size:8.5px;fill:#64748b;">tracebacks, designs bespoke auto_model topology.</text>
+
+  <!-- Box: State Persistence -->
+  <rect x="664" y="26" width="192" height="78" rx="5"
+        fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
+  <text x="674" y="46" style="font-size:10.5px;font-weight:600;fill:#0f172a;">State Persistence</text>
+  <rect x="674" y="52" width="88" height="13" rx="2" fill="#f1f5f9"/>
+  <text x="678" y="62"
+        style="font-size:8.5px;font-family:'JetBrains Mono',monospace;fill:#475569;">run_state.json</text>
+  <text x="674" y="78" style="font-size:8.5px;fill:#64748b;">Step checkpoints &amp; crash-</text>
+  <text x="674" y="90" style="font-size:8.5px;fill:#64748b;">resilient session resume.</text>
+
+  <!-- ── Connector 1: Tier1 → Tier2 ──────────────────────────── -->
+  <!-- Orthogonal: down from Tier1 centre, label masked on vertical segment -->
+  <line x1="440" y1="116" x2="440" y2="134"
+        stroke="#94a3b8" stroke-width="1" marker-end="url(#arr)"/>
+  <rect x="304" y="121" width="272" height="14" rx="7"
+        fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+  <text x="440" y="131" text-anchor="middle"
+        style="font-size:8px;font-family:'JetBrains Mono',monospace;fill:#64748b;">
+    stdio JSON-RPC · Bidirectional Tool Calls
+  </text>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       TIER 2 — MCP SERVER LAYER   y=136 h=118
+  ══════════════════════════════════════════════════════════════════ -->
+  <rect x="12" y="136" width="856" height="118" rx="6"
+        fill="#fafafa" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="5,3"/>
+  <rect x="24" y="129" width="290" height="15" fill="#ffffff"/>
+  <text x="28" y="140"
+        style="font-size:8.5px;font-family:'JetBrains Mono',monospace;font-weight:700;
+               fill:#64748b;letter-spacing:0.07em;text-transform:uppercase;">
+    Tier 2 · MCP Server Layer (server.js · Zod Validated)
+  </text>
+
+  <!-- 5 Tool nodes — equal columns -->
+  <!-- Tool column width: (856-24-16)/5 = 163.2; gap 4 -->
+  <!-- x offsets: 28, 192, 356, 520, 684 -->
+
+  <!-- Step 0 -->
+  <rect x="28" y="150" width="155" height="90" rx="4"
+        fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
+  <text x="38" y="168" style="font-size:9.5px;font-weight:600;fill:#0f172a;">0 · EDA</text>
+  <rect x="38" y="173" width="100" height="12" rx="2" fill="#f1f5f9"/>
+  <text x="42" y="182"
+        style="font-size:8px;font-family:'JetBrains Mono',monospace;fill:#475569;">analyze_dataset</text>
+  <text x="38" y="198" style="font-size:8px;fill:#64748b;">Class balance, null</text>
+  <text x="38" y="210" style="font-size:8px;fill:#64748b;">check, schema info.</text>
+  <text x="38" y="230" style="font-size:7.5px;fill:#94a3b8;">→ eda_summary.json</text>
+
+  <!-- Step 1 -->
+  <rect x="191" y="150" width="155" height="90" rx="4"
+        fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
+  <text x="201" y="168" style="font-size:9.5px;font-weight:600;fill:#0f172a;">1 · Hygiene</text>
+  <rect x="201" y="173" width="100" height="12" rx="2" fill="#f1f5f9"/>
+  <text x="205" y="182"
+        style="font-size:8px;font-family:'JetBrains Mono',monospace;fill:#475569;">clean_dataset</text>
+  <text x="201" y="198" style="font-size:8px;fill:#64748b;">HTML/script strip,</text>
+  <text x="201" y="210" style="font-size:8px;fill:#64748b;">URL/IP abstraction.</text>
+  <text x="201" y="230" style="font-size:7.5px;fill:#94a3b8;">→ cleaned.csv</text>
+
+  <!-- Step 2 -->
+  <rect x="354" y="150" width="172" height="90" rx="4"
+        fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
+  <text x="364" y="168" style="font-size:9.5px;font-weight:600;fill:#0f172a;">2 · Features</text>
+  <rect x="364" y="173" width="104" height="12" rx="2" fill="#f1f5f9"/>
+  <text x="368" y="182"
+        style="font-size:8px;font-family:'JetBrains Mono',monospace;fill:#475569;">extract_features</text>
+  <text x="364" y="198" style="font-size:8px;fill:#64748b;">10,004 Hybrid TF-IDF</text>
+  <text x="364" y="210" style="font-size:8px;fill:#64748b;">+ Meta or 15k DL tokens.</text>
+  <text x="364" y="230" style="font-size:7.5px;fill:#94a3b8;">→ X_train.npy / .npz</text>
+
+  <!-- Step 3 -->
+  <rect x="534" y="150" width="155" height="90" rx="4"
+        fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
+  <text x="544" y="168" style="font-size:9.5px;font-weight:600;fill:#0f172a;">3 · Training</text>
+  <rect x="544" y="173" width="88" height="12" rx="2" fill="#f1f5f9"/>
+  <text x="548" y="182"
+        style="font-size:8px;font-family:'JetBrains Mono',monospace;fill:#475569;">train_models</text>
+  <text x="544" y="198" style="font-size:8px;fill:#64748b;">Optuna TPE 60 trials,</text>
+  <text x="544" y="210" style="font-size:8px;fill:#64748b;">PyTorch CUDA + auto_model.</text>
+  <text x="544" y="230" style="font-size:7.5px;fill:#94a3b8;">→ best_params.json</text>
+
+  <!-- Step 4 -->
+  <rect x="697" y="150" width="159" height="90" rx="4"
+        fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
+  <text x="707" y="168" style="font-size:9.5px;font-weight:600;fill:#0f172a;">4 · Evaluate</text>
+  <rect x="707" y="173" width="110" height="12" rx="2" fill="#f1f5f9"/>
+  <text x="711" y="182"
+        style="font-size:8px;font-family:'JetBrains Mono',monospace;fill:#475569;">evaluate_and_plot</text>
+  <text x="707" y="198" style="font-size:8px;fill:#64748b;">ROC, CM heatmaps,</text>
+  <text x="707" y="210" style="font-size:8px;fill:#64748b;">t-SNE, SHAP, Calib.</text>
+  <text x="707" y="230" style="font-size:7.5px;fill:#94a3b8;">→ viz_outputs/</text>
+
+  <!-- ── Connector 2 ─────────────────────────────────────────── -->
+  <line x1="440" y1="254" x2="440" y2="272"
+        stroke="#94a3b8" stroke-width="1" marker-end="url(#arr)"/>
+  <rect x="300" y="259" width="280" height="14" rx="7"
+        fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+  <text x="440" y="269" text-anchor="middle"
+        style="font-size:8px;font-family:'JetBrains Mono',monospace;fill:#64748b;">
+    Child Process Spawn · Telemetry Sampling
+  </text>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       TIER 3 — PYTHON EXECUTION & SELF-HEALING   y=274 h=96
+  ══════════════════════════════════════════════════════════════════ -->
+  <rect x="12" y="274" width="856" height="96" rx="6"
+        fill="#fafafa" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="5,3"/>
+  <rect x="24" y="267" width="340" height="15" fill="#ffffff"/>
+  <text x="28" y="278"
+        style="font-size:8.5px;font-family:'JetBrains Mono',monospace;font-weight:700;
+               fill:#64748b;letter-spacing:0.07em;text-transform:uppercase;">
+    Tier 3 · Python Backend Execution &amp; Self-Healing Engine
+  </text>
+
+  <!-- Sub-box: Telemetry -->
+  <rect x="24" y="288" width="390" height="72" rx="4"
+        fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
+  <text x="34" y="306" style="font-size:10px;font-weight:600;fill:#0f172a;">Hardware Telemetry</text>
+  <rect x="236" y="293" width="164" height="13" rx="2" fill="#f1f5f9"/>
+  <text x="240" y="303"
+        style="font-size:8px;font-family:'JetBrains Mono',monospace;fill:#475569;">resource_monitor.py</text>
+  <text x="34" y="322" style="font-size:8px;fill:#64748b;">Async sampling: Peak RAM (MB) · CPU% ·</text>
+  <text x="34" y="334" style="font-size:8px;fill:#64748b;">Wall-Clock Time (s) · CUDA VRAM (RTX 5070).</text>
+  <text x="34" y="350" style="font-size:7.5px;fill:#94a3b8;">→ Serialized in auto_ML_results.json</text>
+
+  <!-- Sub-box: Self-Healing (dashed, slight orange tint) -->
+  <rect x="430" y="288" width="426" height="72" rx="4"
+        fill="#ffffff" stroke="#eb6c36" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="440" y="306"
+        style="font-size:10px;font-weight:600;fill:#eb6c36;">3-Tiered Self-Healing Loop</text>
+  <rect x="718" y="293" width="124" height="13" rx="2" fill="#fff0e8"/>
+  <text x="722" y="303"
+        style="font-size:8px;font-family:'JetBrains Mono',monospace;fill:#eb6c36;">healing_log.jsonl</text>
+  <text x="440" y="322" style="font-size:8px;fill:#64748b;"><tspan font-weight="700" fill="#0f172a">L1</tspan> Unified patch (.diff)  <tspan font-weight="700" fill="#0f172a">L2</tspan> Full script refactor</text>
+  <text x="440" y="334" style="font-size:8px;fill:#64748b;"><tspan font-weight="700" fill="#0f172a">L3</tspan> Safe fallback + immutable audit log.</text>
+  <text x="440" y="350" style="font-size:7.5px;fill:#94a3b8;">→ 100% autonomous crash recovery</text>
+
+  <!-- ── Connector 3 ─────────────────────────────────────────── -->
+  <line x1="440" y1="370" x2="440" y2="388"
+        stroke="#94a3b8" stroke-width="1" marker-end="url(#arr)"/>
+  <rect x="294" y="375" width="292" height="14" rx="7"
+        fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+  <text x="440" y="385" text-anchor="middle"
+        style="font-size:8px;font-family:'JetBrains Mono',monospace;fill:#64748b;">
+    Automated Post-Training Suite Dispatch
+  </text>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       TIER 4 — POST-TRAINING VALIDATION SUITE   y=390 h=100
+  ══════════════════════════════════════════════════════════════════ -->
+  <rect x="12" y="390" width="856" height="104" rx="6"
+        fill="#fafafa" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="5,3"/>
+  <rect x="24" y="383" width="358" height="15" fill="#ffffff"/>
+  <text x="28" y="394"
+        style="font-size:8.5px;font-family:'JetBrains Mono',monospace;font-weight:700;
+               fill:#64748b;letter-spacing:0.07em;text-transform:uppercase;">
+    Tier 4 · Post-Training Validation Suite (post_training_pipeline.py)
+  </text>
+
+  <!-- 4 modules -->
+  <!-- col width: (856-24-20)/4 = 203, gap ~6 -->
+
+  <rect x="28" y="404" width="196" height="80" rx="4"
+        fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
+  <text x="38" y="420" style="font-size:9.5px;font-weight:600;fill:#0f172a;">Cross-Dataset Eval</text>
+  <rect x="38" y="425" width="120" height="12" rx="2" fill="#f1f5f9"/>
+  <text x="42" y="434"
+        style="font-size:8px;font-family:'JetBrains Mono',monospace;fill:#475569;">D1 ↔ D2 domain shift</text>
+  <text x="38" y="450" style="font-size:8px;fill:#64748b;">Bidirectional transfer</text>
+  <text x="38" y="462" style="font-size:8px;fill:#64748b;">without fine-tuning.</text>
+
+  <rect x="232" y="404" width="196" height="80" rx="4"
+        fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
+  <text x="242" y="420" style="font-size:9.5px;font-weight:600;fill:#0f172a;">McNemar Paired Test</text>
+  <rect x="242" y="425" width="116" height="12" rx="2" fill="#f1f5f9"/>
+  <text x="246" y="434"
+        style="font-size:8px;font-family:'JetBrains Mono',monospace;fill:#475569;">p-value significance</text>
+  <text x="242" y="450" style="font-size:8px;fill:#64748b;">Continuity-corrected χ²</text>
+  <text x="242" y="462" style="font-size:8px;fill:#64748b;">test on held-out sets.</text>
+
+  <rect x="436" y="404" width="196" height="80" rx="4"
+        fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
+  <text x="446" y="420" style="font-size:9.5px;font-weight:600;fill:#0f172a;">5-Seed Stability</text>
+  <rect x="446" y="425" width="108" height="12" rx="2" fill="#f1f5f9"/>
+  <text x="450" y="434"
+        style="font-size:8px;font-family:'JetBrains Mono',monospace;fill:#475569;">mean ± std dev (σ)</text>
+  <text x="446" y="450" style="font-size:8px;fill:#64748b;">5 random seeds;</text>
+  <text x="446" y="462" style="font-size:8px;fill:#64748b;">TextCNN σ ≤ 0.09%.</text>
+
+  <rect x="640" y="404" width="216" height="80" rx="4"
+        fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
+  <text x="650" y="420" style="font-size:9.5px;font-weight:600;fill:#0f172a;">DistilBERT Baseline</text>
+  <rect x="650" y="425" width="108" height="12" rx="2" fill="#f1f5f9"/>
+  <text x="654" y="434"
+        style="font-size:8px;font-family:'JetBrains Mono',monospace;fill:#475569;">66M transformer</text>
+  <text x="650" y="450" style="font-size:8px;fill:#64748b;">18.1× faster, 33.7× lighter,</text>
+  <text x="650" y="462" style="font-size:8px;fill:#64748b;">recall: 98.97% (TextCNN).</text>
+
+  <!-- Storage footer -->
+  <line x1="28" y1="488" x2="856" y2="488"
+        stroke="#e2e8f0" stroke-width="0.8"/>
+  <text x="440" y="500" text-anchor="middle"
+        style="font-size:8px;fill:#94a3b8;font-family:'JetBrains Mono',monospace;">
+    Artifacts: thesis_pipeline/ML/runs/  ·  thesis_pipeline/DL/runs/  (Metrics JSON · Model Checkpoints · Plots)
+  </text>
+
+</svg>

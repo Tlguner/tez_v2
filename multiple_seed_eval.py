@@ -118,7 +118,40 @@ def main():
     print(f"Dataset shapes: Train={X_train.shape}, Test={X_test.shape}")
     
     seeds = [0, 42, 100, 555, 2026]
+    
+    # Dynamically select top-4 models based on test F1-score if results file exists
     target_models = ["text_cnn", "hybrid", "bilstm", "auto_model"]
+    results_path = os.path.join(RUN_DIR, "auto_ML_results.json")
+    if os.path.exists(results_path):
+        try:
+            with open(results_path, "r", encoding="utf-8") as f:
+                res_dict = json.load(f)
+            # Map canonical names to model_type strings
+            name_map = {
+                "text_cnn": "text_cnn", "textcnn": "text_cnn",
+                "hybrid": "hybrid", "hybrid_cnn_dense": "hybrid",
+                "bilstm": "bilstm", "bidirectional_lstm": "bilstm",
+                "auto_model": "auto_model", "lstm": "lstm", "gru": "gru", "cnn": "cnn"
+            }
+            sorted_models = sorted(
+                res_dict.items(),
+                key=lambda item: item[1].get("f1_score", item[1].get("accuracy", 0)),
+                reverse=True
+            )
+            dyn_targets = []
+            for name, _ in sorted_models:
+                clean_name = name.lower().replace("-", "_").replace(" ", "_")
+                for k, v in name_map.items():
+                    if k in clean_name and v not in dyn_targets:
+                        dyn_targets.append(v)
+                        break
+                if len(dyn_targets) == 4:
+                    break
+            if len(dyn_targets) >= 3:
+                target_models = dyn_targets
+                print(f"[DYNAMIC SELECTION] Top 4 models selected for seed evaluation: {target_models}")
+        except Exception as e:
+            print(f"[WARN] Could not dynamically parse top models ({e}), using default top-4.")
     
     summary_results = {}
     
