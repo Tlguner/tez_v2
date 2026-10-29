@@ -1,0 +1,439 @@
+{
+  "metadata": {
+    "description": "Comprehensive Cross-Dataset Evaluation (Deep Learning & Classical Hybrid ML)",
+    "framework": "Optuna-Tuned PyTorch CUDA (both D1 & D2 for DL)",
+    "d2_test_samples": 16497,
+    "d1_test_samples": 3727,
+    "vocab_size": 15000,
+    "max_length": 400,
+    "exact_string_overlap_count": 8,
+    "exact_string_overlap_pct_d2": 0.0097,
+    "exact_string_overlap_pct_d1": 0.0456,
+    "near_duplicate_overlap_count_cos90": 13268,
+    "near_duplicate_overlap_pct_d1": 75.66,
+    "reconstruction_assert_dl_d2": true,
+    "reconstruction_assert_dl_d1": true,
+    "reconstruction_assert_ml_d2": true,
+    "reconstruction_assert_ml_d1": true
+  },
+  "DL_cross_dataset": {
+    "D2_models_tested_on_D1": {
+      "models": {
+        "AUTO_MODEL": {
+          "in_domain_accuracy": 0.9843,
+          "cross_domain_accuracy": 0.8908,
+          "delta_accuracy": -0.0935,
+          "precision": 0.9385,
+          "recall": 0.7722,
+          "f1": 0.8473,
+          "auc": 0.9763
+        },
+        "TEXT_CNN": {
+          "in_domain_accuracy": 0.9891,
+          "cross_domain_accuracy": 0.905,
+          "delta_accuracy": -0.0841,
+          "precision": 0.845,
+          "recall": 0.9282,
+          "f1": 0.8846,
+          "auc": 0.9761
+        },
+        "CNN": {
+          "in_domain_accuracy": 0.9876,
+          "cross_domain_accuracy": 0.9015,
+          "delta_accuracy": -0.0861,
+          "precision": 0.9035,
+          "recall": 0.8386,
+          "f1": 0.8698,
+          "auc": 0.9738
+        },
+        "HYBRID": {
+          "in_domain_accuracy": 0.9836,
+          "cross_domain_accuracy": 0.8854,
+          "delta_accuracy": -0.0982,
+          "precision": 0.8208,
+          "recall": 0.9056,
+          "f1": 0.8611,
+          "auc": 0.9586
+        },
+        "CNN_LSTM": {
+          "in_domain_accuracy": 0.9804,
+          "cross_domain_accuracy": 0.8535,
+          "delta_accuracy": -0.1269,
+          "precision": 0.8629,
+          "recall": 0.7449,
+          "f1": 0.7996,
+          "auc": 0.9339
+        },
+        "GRU": {
+          "in_domain_accuracy": 0.9879,
+          "cross_domain_accuracy": 0.9149,
+          "delta_accuracy": -0.073,
+          "precision": 0.9428,
+          "recall": 0.8338,
+          "f1": 0.8849,
+          "auc": 0.9801
+        },
+        "BILSTM": {
+          "in_domain_accuracy": 0.9852,
+          "cross_domain_accuracy": 0.9431,
+          "delta_accuracy": -0.0421,
+          "precision": 0.9562,
+          "recall": 0.896,
+          "f1": 0.9251,
+          "auc": 0.9913
+        },
+        "LSTM": {
+          "in_domain_accuracy": 0.9698,
+          "cross_domain_accuracy": 0.8723,
+          "delta_accuracy": -0.0975,
+          "precision": 0.8358,
+          "recall": 0.8393,
+          "f1": 0.8375,
+          "auc": 0.9012
+        },
+        "STACKED_LSTM": {
+          "in_domain_accuracy": 0.9647,
+          "cross_domain_accuracy": 0.8358,
+          "delta_accuracy": -0.1289,
+          "precision": 0.8559,
+          "recall": 0.699,
+          "f1": 0.7696,
+          "auc": 0.9265
+        }
+      },
+      "skipped": {}
+    },
+    "D1_models_tested_on_D2": {
+      "models": {
+        "AUTO_MODEL": {
+          "in_domain_accuracy": 0.9603,
+          "cross_domain_accuracy": 0.8965,
+          "delta_accuracy": -0.0638,
+          "precision": 0.8549,
+          "recall": 0.9647,
+          "f1": 0.9065,
+          "auc": 0.9565
+        },
+        "TEXT_CNN": {
+          "in_domain_accuracy": 0.9587,
+          "cross_domain_accuracy": 0.9049,
+          "delta_accuracy": -0.0538,
+          "precision": 0.9035,
+          "recall": 0.9148,
+          "f1": 0.9091,
+          "auc": 0.9602
+        },
+        "CNN": {
+          "in_domain_accuracy": 0.9603,
+          "cross_domain_accuracy": 0.8763,
+          "delta_accuracy": -0.084,
+          "precision": 0.8899,
+          "recall": 0.8697,
+          "f1": 0.8797,
+          "auc": 0.9571
+        },
+        "HYBRID": {
+          "in_domain_accuracy": 0.9568,
+          "cross_domain_accuracy": 0.8483,
+          "delta_accuracy": -0.1085,
+          "precision": 0.8632,
+          "recall": 0.8417,
+          "f1": 0.8523,
+          "auc": 0.9294
+        },
+        "CNN_LSTM": {
+          "in_domain_accuracy": 0.9343,
+          "cross_domain_accuracy": 0.8737,
+          "delta_accuracy": -0.0606,
+          "precision": 0.8602,
+          "recall": 0.9039,
+          "f1": 0.8815,
+          "auc": 0.9409
+        },
+        "GRU": {
+          "in_domain_accuracy": 0.9018,
+          "cross_domain_accuracy": 0.7997,
+          "delta_accuracy": -0.1021,
+          "precision": 0.8024,
+          "recall": 0.8156,
+          "f1": 0.8089,
+          "auc": 0.8535
+        },
+        "BILSTM": {
+          "in_domain_accuracy": 0.9598,
+          "cross_domain_accuracy": 0.8877,
+          "delta_accuracy": -0.0721,
+          "precision": 0.838,
+          "recall": 0.9718,
+          "f1": 0.9,
+          "auc": 0.9514
+        },
+        "LSTM": {
+          "in_domain_accuracy": 0.6179,
+          "cross_domain_accuracy": 0.4792,
+          "delta_accuracy": -0.1387,
+          "precision": 0.4896,
+          "recall": 0.0358,
+          "f1": 0.0667,
+          "auc": 0.5218
+        },
+        "STACKED_LSTM": {
+          "in_domain_accuracy": 0.6413,
+          "cross_domain_accuracy": 0.4867,
+          "delta_accuracy": -0.1546,
+          "precision": 0.6478,
+          "recall": 0.0281,
+          "f1": 0.0539,
+          "auc": 0.5317
+        }
+      },
+      "skipped": {}
+    }
+  },
+  "ML_hybrid_cross_dataset": {
+    "D2_models_tested_on_D1": {
+      "models": {
+        "LinearSVC": {
+          "in_domain_accuracy": 0.989,
+          "in_domain_auc": 0.9991,
+          "cross_domain_accuracy": 0.9525,
+          "delta_accuracy": -0.0365,
+          "precision": 0.9013,
+          "recall": 0.987,
+          "f1": 0.9422,
+          "auc": 0.9932
+        },
+        "LogisticRegression": {
+          "in_domain_accuracy": 0.9885,
+          "in_domain_auc": 0.9991,
+          "cross_domain_accuracy": 0.9533,
+          "delta_accuracy": -0.0352,
+          "precision": 0.903,
+          "recall": 0.987,
+          "f1": 0.9431,
+          "auc": 0.9932
+        },
+        "VotingClassifier": {
+          "in_domain_accuracy": 0.9859,
+          "in_domain_auc": 0.999,
+          "cross_domain_accuracy": 0.9469,
+          "delta_accuracy": -0.039,
+          "precision": 0.9444,
+          "recall": 0.9186,
+          "f1": 0.9313,
+          "auc": 0.9928
+        },
+        "SGDClassifier": {
+          "in_domain_accuracy": 0.9851,
+          "in_domain_auc": 0.9987,
+          "cross_domain_accuracy": 0.9388,
+          "delta_accuracy": -0.0463,
+          "precision": 0.8804,
+          "recall": 0.9767,
+          "f1": 0.9261,
+          "auc": 0.9881
+        },
+        "auto_model": {
+          "in_domain_accuracy": 0.961,
+          "in_domain_auc": 0.9941,
+          "cross_domain_accuracy": 0.8666,
+          "delta_accuracy": -0.0944,
+          "precision": 0.7528,
+          "recall": 0.9829,
+          "f1": 0.8526,
+          "auc": 0.9568
+        },
+        "GaussianNB": {
+          "in_domain_accuracy": 0.9625,
+          "in_domain_auc": 0.969,
+          "cross_domain_accuracy": 0.9179,
+          "delta_accuracy": -0.0446,
+          "precision": 0.9516,
+          "recall": 0.8331,
+          "f1": 0.8884,
+          "auc": 0.9118
+        },
+        "MultinomialNB": {
+          "in_domain_accuracy": 0.9619,
+          "in_domain_auc": 0.9965,
+          "cross_domain_accuracy": 0.9149,
+          "delta_accuracy": -0.047,
+          "precision": 0.9696,
+          "recall": 0.8085,
+          "f1": 0.8818,
+          "auc": 0.9866
+        },
+        "RandomForestClassifier": {
+          "in_domain_accuracy": 0.9671,
+          "in_domain_auc": 0.9948,
+          "cross_domain_accuracy": 0.8948,
+          "delta_accuracy": -0.0723,
+          "precision": 0.7936,
+          "recall": 0.9891,
+          "f1": 0.8806,
+          "auc": 0.9798
+        }
+      },
+      "skipped": {}
+    },
+    "D1_models_tested_on_D2": {
+      "models": {
+        "LinearSVC": {
+          "in_domain_accuracy": 0.9705,
+          "in_domain_auc": 0.9963,
+          "cross_domain_accuracy": 0.8848,
+          "delta_accuracy": -0.0857,
+          "precision": 0.9151,
+          "recall": 0.8581,
+          "f1": 0.8857,
+          "auc": 0.9672
+        },
+        "LogisticRegression": {
+          "in_domain_accuracy": 0.971,
+          "in_domain_auc": 0.9963,
+          "cross_domain_accuracy": 0.8854,
+          "delta_accuracy": -0.0856,
+          "precision": 0.9174,
+          "recall": 0.8569,
+          "f1": 0.8861,
+          "auc": 0.9674
+        },
+        "VotingClassifier": {
+          "in_domain_accuracy": 0.9705,
+          "in_domain_auc": 0.996,
+          "cross_domain_accuracy": 0.8959,
+          "delta_accuracy": -0.0746,
+          "precision": 0.9457,
+          "recall": 0.8486,
+          "f1": 0.8945,
+          "auc": 0.9764
+        },
+        "SGDClassifier": {
+          "in_domain_accuracy": 0.9683,
+          "in_domain_auc": 0.9921,
+          "cross_domain_accuracy": 0.9185,
+          "delta_accuracy": -0.0498,
+          "precision": 0.9234,
+          "recall": 0.9196,
+          "f1": 0.9215,
+          "auc": 0.9704
+        },
+        "auto_model": {
+          "in_domain_accuracy": 0.9589,
+          "in_domain_auc": 0.9925,
+          "cross_domain_accuracy": 0.8695,
+          "delta_accuracy": -0.0894,
+          "precision": 0.8341,
+          "recall": 0.935,
+          "f1": 0.8817,
+          "auc": 0.936
+        },
+        "GaussianNB": {
+          "in_domain_accuracy": 0.9493,
+          "in_domain_auc": 0.949,
+          "cross_domain_accuracy": 0.8563,
+          "delta_accuracy": -0.093,
+          "precision": 0.9219,
+          "recall": 0.7908,
+          "f1": 0.8513,
+          "auc": 0.8644
+        },
+        "MultinomialNB": {
+          "in_domain_accuracy": 0.9587,
+          "in_domain_auc": 0.992,
+          "cross_domain_accuracy": 0.8332,
+          "delta_accuracy": -0.1255,
+          "precision": 0.9554,
+          "recall": 0.7124,
+          "f1": 0.8162,
+          "auc": 0.9663
+        },
+        "RandomForestClassifier": {
+          "in_domain_accuracy": 0.9659,
+          "in_domain_auc": 0.9931,
+          "cross_domain_accuracy": 0.8538,
+          "delta_accuracy": -0.1121,
+          "precision": 0.8345,
+          "recall": 0.8966,
+          "f1": 0.8645,
+          "auc": 0.9437
+        }
+      },
+      "skipped": {}
+    }
+  },
+  "ML_ablation_study": {
+    "D2_models_tested_on_D1": {
+      "LogisticRegression": {
+        "tfidf_only": {
+          "accuracy": 0.9541,
+          "recall": 0.9863,
+          "f1": 0.944
+        },
+        "struct_only": {
+          "accuracy": 0.5718,
+          "recall": 0.8181,
+          "f1": 0.5998
+        },
+        "hybrid": {
+          "accuracy": 0.9533,
+          "recall": 0.987,
+          "f1": 0.9431
+        }
+      },
+      "LinearSVC": {
+        "tfidf_only": {
+          "accuracy": 0.953,
+          "recall": 0.987,
+          "f1": 0.9428
+        },
+        "struct_only": {
+          "accuracy": 0.5734,
+          "recall": 0.8174,
+          "f1": 0.6005
+        },
+        "hybrid": {
+          "accuracy": 0.9525,
+          "recall": 0.987,
+          "f1": 0.9422
+        }
+      }
+    },
+    "D1_models_tested_on_D2": {
+      "LogisticRegression": {
+        "tfidf_only": {
+          "accuracy": 0.8846,
+          "recall": 0.8436,
+          "f1": 0.8837
+        },
+        "struct_only": {
+          "accuracy": 0.48,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "hybrid": {
+          "accuracy": 0.8853,
+          "recall": 0.8566,
+          "f1": 0.8859
+        }
+      },
+      "LinearSVC": {
+        "tfidf_only": {
+          "accuracy": 0.8859,
+          "recall": 0.848,
+          "f1": 0.8854
+        },
+        "struct_only": {
+          "accuracy": 0.48,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "hybrid": {
+          "accuracy": 0.8848,
+          "recall": 0.8581,
+          "f1": 0.8857
+        }
+      }
+    }
+  }
+}
