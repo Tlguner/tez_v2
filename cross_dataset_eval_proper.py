@@ -84,6 +84,28 @@ d2_intra_leak_count = int(np.sum(te_dl_82k['text'].astype(str).isin(s_tr_82k)))
 d2_intra_leak_pct = round(float(d2_intra_leak_count / len(te_dl_82k) * 100), 2)
 print(f"[AUDIT] D2 Intra-Dataset Train-Test Leakage: {d2_intra_leak_count} / {len(te_dl_82k)} ({d2_intra_leak_pct}%)", flush=True)
 
+# Conflicting labels audit
+d1_grouped = df_dl_18k.groupby('text')['label'].nunique()
+d1_conflicts = d1_grouped[d1_grouped > 1]
+d1_conflict_rows = int(df_dl_18k['text'].isin(d1_conflicts.index).sum())
+
+d2_grouped = df_dl_82k.groupby('text')['label'].nunique()
+d2_conflicts = d2_grouped[d2_grouped > 1]
+d2_conflict_rows = int(df_dl_82k['text'].isin(d2_conflicts.index).sum())
+
+leaked_te_d1 = te_dl_18k[te_dl_18k['text'].astype(str).isin(s_tr_18k)]
+conflicting_leaked_count = 0
+for _, row in leaked_te_d1.iterrows():
+    txt = str(row['text'])
+    te_label = row['label']
+    tr_labels = tr_dl_18k[tr_dl_18k['text'].astype(str) == txt]['label'].unique()
+    if te_label not in tr_labels or len(tr_labels) > 1:
+        conflicting_leaked_count += 1
+conflicting_leaked_pct = round(float(conflicting_leaked_count / len(leaked_te_d1) * 100), 2) if len(leaked_te_d1) > 0 else 0.0
+
+print(f"[AUDIT] D1 Conflicting Labels: {len(d1_conflicts)} unique texts ({d1_conflict_rows} total rows). Leaked test conflicting: {conflicting_leaked_count}/{len(leaked_te_d1)} ({conflicting_leaked_pct}%)", flush=True)
+print(f"[AUDIT] D2 Conflicting Labels: {len(d2_conflicts)} unique texts ({d2_conflict_rows} total rows)", flush=True)
+
 # ==========================================
 # 2. DYNAMIC LEXICAL SIMILARITY (SOURCE TRAIN VS TARGET TEST)
 # ==========================================
@@ -121,20 +143,20 @@ dir_a_sim_stats = {
 }
 print(f" [Direction A: D2 Train -> D1 Test] Near-dup (>=0.80): {dir_a_sim_stats['near_duplicates_cos80_count']} ({dir_a_sim_stats['near_duplicates_cos80_pct']}%) | Truly novel (<0.50): {dir_a_sim_stats['truly_novel_cos_lt50_count']} ({dir_a_sim_stats['truly_novel_cos_lt50_pct']}%)", flush=True)
 
-# Direction B: Target Test = D2 Test (te_dl_82k) vs Source Train = D1 Train (tr_dl_18k)
-texts_b = list(te_dl_82k['text'].astype(str)) + list(tr_dl_18k['text'].astype(str))
-X_b = sim_vec.fit_transform(texts_b)
-X_te2 = X_b[:len(te_dl_82k)]
-X_tr1 = X_b[len(te_dl_82k):]
+# Direction B (DL): Target Test = D2 Test (te_dl_82k, N=16497) vs Source Train = D1 Train (tr_dl_18k, N=14907)
+texts_b_dl = list(te_dl_82k['text'].astype(str)) + list(tr_dl_18k['text'].astype(str))
+X_b_dl = sim_vec.fit_transform(texts_b_dl)
+X_te2_dl = X_b_dl[:len(te_dl_82k)]
+X_tr1_dl = X_b_dl[len(te_dl_82k):]
 
-max_sim_te2 = np.zeros(len(te_dl_82k))
-for i in range(0, X_te2.shape[0], chunk_size):
-    sim = linear_kernel(X_te2[i:i+chunk_size], X_tr1)
-    max_sim_te2[i:i+chunk_size] = np.max(sim, axis=1)
+max_sim_te2_dl = np.zeros(len(te_dl_82k))
+for i in range(0, X_te2_dl.shape[0], chunk_size):
+    sim = linear_kernel(X_te2_dl[i:i+chunk_size], X_tr1_dl)
+    max_sim_te2_dl[i:i+chunk_size] = np.max(sim, axis=1)
 
-mask_te2_near80 = (max_sim_te2 >= 0.80)
-mask_te2_near90 = (max_sim_te2 >= 0.90)
-mask_te2_novel50 = (max_sim_te2 < 0.50)
+mask_te2_near80 = (max_sim_te2_dl >= 0.80)
+mask_te2_near90 = (max_sim_te2_dl >= 0.90)
+mask_te2_novel50 = (max_sim_te2_dl < 0.50)
 
 dir_b_sim_stats = {
     "target_test_samples": len(te_dl_82k),
@@ -144,16 +166,30 @@ dir_b_sim_stats = {
     "near_duplicates_cos90_pct": round(float(np.mean(mask_te2_near90) * 100), 2),
     "near_duplicates_cos80_count": int(np.sum(mask_te2_near80)),
     "near_duplicates_cos80_pct": round(float(np.mean(mask_te2_near80) * 100), 2),
-    "moderate_similarity_cos50_count": int(np.sum(max_sim_te2 >= 0.50)),
-    "moderate_similarity_cos50_pct": round(float(np.mean(max_sim_te2 >= 0.50) * 100), 2),
+    "moderate_similarity_cos50_count": int(np.sum(max_sim_te2_dl >= 0.50)),
+    "moderate_similarity_cos50_pct": round(float(np.mean(max_sim_te2_dl >= 0.50) * 100), 2),
     "truly_novel_cos_lt50_count": int(np.sum(mask_te2_novel50)),
     "truly_novel_cos_lt50_pct": round(float(np.mean(mask_te2_novel50) * 100), 2)
 }
-print(f" [Direction B: D1 Train -> D2 Test] Near-dup (>=0.80): {dir_b_sim_stats['near_duplicates_cos80_count']} ({dir_b_sim_stats['near_duplicates_cos80_pct']}%) | Truly novel (<0.50): {dir_b_sim_stats['truly_novel_cos_lt50_count']} ({dir_b_sim_stats['truly_novel_cos_lt50_pct']}%)", flush=True)
+print(f" [Direction B: D1 Train -> D2 Test (DL)] Near-dup (>=0.80): {dir_b_sim_stats['near_duplicates_cos80_count']} ({dir_b_sim_stats['near_duplicates_cos80_pct']}%) | Truly novel (<0.50): {dir_b_sim_stats['truly_novel_cos_lt50_count']} ({dir_b_sim_stats['truly_novel_cos_lt50_pct']}%)", flush=True)
 
-# For ML splits (which have 16,498 rows in D2 test vs 16,497 in DL)
-mask_ml_te2_near80 = mask_te2_near80 if len(mask_te2_near80) == len(te_ml_82k) else np.append(mask_te2_near80, mask_te2_near80[-1])
-mask_ml_te2_novel50 = mask_te2_novel50 if len(mask_te2_novel50) == len(te_ml_82k) else np.append(mask_te2_novel50, mask_te2_novel50[-1])
+# Direction B (ML): Target Test = D2 Test (te_ml_82k, N=16498) vs Source Train = D1 Train (tr_ml_18k, N=14907)
+# Computed directly on ML split without any np.append hack
+texts_b_ml = list(te_ml_82k['text'].astype(str)) + list(tr_ml_18k['text'].astype(str))
+X_b_ml = sim_vec.fit_transform(texts_b_ml)
+X_te2_ml = X_b_ml[:len(te_ml_82k)]
+X_tr1_ml = X_b_ml[len(te_ml_82k):]
+
+max_sim_te2_ml = np.zeros(len(te_ml_82k))
+for i in range(0, X_te2_ml.shape[0], chunk_size):
+    sim = linear_kernel(X_te2_ml[i:i+chunk_size], X_tr1_ml)
+    max_sim_te2_ml[i:i+chunk_size] = np.max(sim, axis=1)
+
+mask_ml_te2_near80 = (max_sim_te2_ml >= 0.80)
+mask_ml_te2_novel50 = (max_sim_te2_ml < 0.50)
+assert len(mask_ml_te2_near80) == len(te_ml_82k) == 16498, "FATAL: ML Direction B mask length mismatch!"
+assert len(mask_te2_near80) == len(te_dl_82k) == 16497, "FATAL: DL Direction B mask length mismatch!"
+assert len(mask_te1_near80) == len(te_dl_18k) == 3727, "FATAL: D1 mask length mismatch!"
 
 # ==========================================
 # 3. RECONSTRUCTION ASSERTIONS AGAINST DISK
@@ -243,6 +279,29 @@ report = {
         "d2_intra_dataset_leak_pct": d2_intra_leak_pct,
         "similarity_direction_A_D2train_vs_D1test": dir_a_sim_stats,
         "similarity_direction_B_D1train_vs_D2test": dir_b_sim_stats,
+        "conflicting_labels_audit": {
+            "d1_unique_conflicting_texts": len(d1_conflicts),
+            "d1_conflicting_rows_total": d1_conflict_rows,
+            "d1_leaked_test_conflicting_count": conflicting_leaked_count,
+            "d1_leaked_test_total": len(leaked_te_d1),
+            "d1_leaked_test_conflicting_pct": conflicting_leaked_pct,
+            "d2_unique_conflicting_texts": len(d2_conflicts),
+            "d2_conflicting_rows_total": d2_conflict_rows
+        },
+        "empty_rows_audit": {
+            "d1_empty_text_rows": int((df_dl_18k['text'] == 'empty').sum()),
+            "d1_empty_text_phishing": int(((df_dl_18k['text'] == 'empty') & (df_dl_18k['label'] == 1)).sum()),
+            "d1_empty_text_legitimate": int(((df_dl_18k['text'] == 'empty') & (df_dl_18k['label'] == 0)).sum()),
+            "d1_empty_text_in_test": int((te_dl_18k['text'] == 'empty').sum()),
+            "d1_empty_text_in_train": int((tr_dl_18k['text'] == 'empty').sum()),
+            "d2_empty_text_rows": int((df_dl_82k['text'] == 'empty').sum())
+        },
+        "evaluation_sample_sizes": {
+            "d1_test_samples": len(te_dl_18k),
+            "d2_test_samples_dl": len(te_dl_82k),
+            "d2_test_samples_ml": len(te_ml_82k),
+            "note": "ML test split contains 16,498 samples (N=82,486 total) and DL test split contains 16,497 samples (N=82,485 total). Both pipelines use independent stratified splits and independent similarity masks."
+        },
         "reconstruction_assert_dl_d2": True,
         "reconstruction_assert_dl_d1": True,
         "reconstruction_assert_ml_d2": True,

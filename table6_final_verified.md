@@ -48,21 +48,13 @@ The transfer benchmark therefore assesses model resilience across differing corp
 | **SGDClassifier** | 98.51% | 93.88% | -4.63 pp | 88.04% | 97.67% | 92.61% | 0.9881 |
 | **GaussianNB** | 96.25% | 91.79% | -4.46 pp | 95.16% | 83.31% | 88.84% | 0.9118 |
 | **Multinomial NB** | 96.19% | 91.49% | -4.70 pp | 96.96% | 80.85% | 88.18% | 0.9866 |
-| **Random Forest** | 96.71% | 89.48% | -7.23 pp | 79.36% | 98.91% | 88.06% | 0.9798 |
+| **Random Forest** | 96.71% | 89.48% | -7.23 pp | 79.36% | 98.91% | 88.06% | 0.9799 |
 | **AutoModel-ML (HistGradBoost)** | 96.10% | 86.66% | -9.44 pp | 75.28% | 98.29% | 85.26% | 0.9568 |
 
 ### Table 6d: Classical Machine Learning Transfer (Trained on Dataset 1 -> Tested on Dataset 2, N = 16,498)
 | Model | In-Domain Accuracy | Cross-Dataset Accuracy | Accuracy Change (pp) | Precision | Recall | F1-Score | ROC-AUC |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **SGDClassifier** | 96.83% | 91.85% | -4.98 pp | 92.34% | 91.96% | 92.15% | 0.9704 |
-| **Voting Classifier** | 97.05% | 89.59% | -7.46 pp | 94.57% | 84.86% | 89.45% | 0.9764 |
-| **Logistic Regression** | 97.10% | 88.54% | -8.56 pp | 91.74% | 85.69% | 88.61% | 0.9674 |
-| **LinearSVC** | 97.05% | 88.48% | -8.57 pp | 91.51% | 85.81% | 88.57% | 0.9672 |
-| **AutoModel-ML (HistGradBoost)** | 95.89% | 86.95% | -8.94 pp | 83.41% | 93.50% | 88.17% | 0.9360 |
-| **GaussianNB** | 94.93% | 85.63% | -9.30 pp | 92.19% | 79.08% | 85.13% | 0.8644 |
-| **Random Forest** | 96.59% | 85.38% | -11.21 pp | 83.45% | 89.66% | 86.45% | 0.9437 |
-| **Multinomial NB** | 95.87% | 83.32% | -12.55 pp | 95.54% | 71.24% | 81.62% | 0.9663 |
-*Note: The ML test split contains 16,498 samples (corresponding to total N = 82,486, matching Chapter 4), whereas the DL split contains 16,497 samples due to an excluded malformed row.*
+*Note: The ML test split contains 16,498 samples (from the ML pipeline run with N = 82,486 total), whereas the DL test split contains 16,497 samples (from the DL pipeline run with N = 82,485 total). Both pipelines use independent stratified splits and independent similarity masks.*
 
 ### Table 6e: Feature Space Ablation Study (With ROC-AUC)
 All models are trained with their exact Optuna-tuned hyperparameters. Native in-domain baselines are dynamically computed and included for reference.
@@ -104,11 +96,50 @@ Performance evaluated across distinct similarity strata to isolate genuine out-o
 | TextCNN | 90.50% | 97.21% | 69.39% [65.5–73.0%] | 59.39% |
 | AutoModel-DL (BiGRU + Attn.) | 89.08% | 91.32% | 76.02% [72.4–79.3%] | 48.73% |
 | **Dataset 1 -> Dataset 2** | *(N = 16,497)* | *(N = 3,534, 21.4%)* | *(N = 11,191, 67.8%)* | |
-| SGDClassifier | 91.85% | 95.10% | 90.39% [89.8–90.9%] | 91.50% |
-| Voting Classifier | 89.59% | 92.39% | 88.31% [87.7–88.9%] | 84.49% |
-| Logistic Regression | 88.54% | 91.96% | 86.97% [86.3–87.6%] | 85.45% |
-| LinearSVC | 88.48% | 92.05% | 86.84% [86.2–87.5%] | 85.50% |
-| AutoModel-ML (HistGradBoost) | 86.95% | 93.01% | 84.42% [83.7–85.1%] | 93.00% |
+| SGDClassifier | 91.85% | 98.36% | 88.87% [88.3–89.4%] | 88.97% |
+| Voting Classifier | 89.59% | 99.17% | 85.15% [84.5–85.8%] | 78.85% |
+| Logistic Regression | 88.54% | 98.82% | 83.85% [83.2–84.5%] | 79.94% |
+| LinearSVC | 88.48% | 98.85% | 83.78% [83.1–84.5%] | 80.12% |
+| AutoModel-ML (HistGradBoost) | 86.95% | 94.32% | 83.88% [83.2–84.5%] | 92.37% |
 | TextCNN | 90.49% | 96.15% | 87.83% [87.2–88.4%] | 90.56% |
 | AutoModel-DL (BiGRU + Attn.) | 89.65% | 97.45% | 86.13% [85.5–86.8%] | 95.40% |
 | BiLSTM | 88.77% | 96.32% | 85.46% [84.8–86.1%] | 96.57% |
+
+---
+
+## Comprehensive Cross-Dataset Discussion & Analysis
+
+The bidirectional transfer evaluation between Dataset 1 and Dataset 2 uncovers several empirical dynamics governing cross-corpus generalization in email phishing detection:
+
+### 1. Generalization Under High Lexical Overlap (Near-Duplicate Subset, cos >= 0.80)
+When tested on email samples that share high lexical overlap with the training distribution (cosine similarity >= 0.80), both deep learning and machine learning models demonstrate robust classification accuracy. Specifically:
+* In the **Dataset 2 -> Dataset 1** direction (testing on 2,582 near-duplicate samples, 69.3% of Dataset 1 test set), near-duplicate accuracy spans from **84.82%** (STACKED_LSTM) to **99.03%** (LinearSVC). Classical ML models achieve between 92.99% and 99.03%.
+* In the **Dataset 1 -> Dataset 2** direction (testing on 3,534 near-duplicate samples, 21.4% of Dataset 2 test set), near-duplicate accuracy among architectures that converged in-domain spans from **88.79%** (GRU) to **99.17%** (VotingClassifier).
+* **Note on Non-Converged Baselines:** LSTM and Stacked LSTM models trained on Dataset 1 attained near-duplicate accuracies of only 56.45% and 56.06%. Because these architectures failed to optimize during in-domain training on Dataset 1 (achieving in-domain ROC-AUC of only ~0.52–0.53), their low cross-dataset performance represents an in-domain underfitting failure rather than a domain-shift transfer collapse.
+
+### 2. Empirical Performance and Phishing Recall on Truly Novel Emails (cos < 0.50)
+Evaluating models strictly on the partition of emails exhibiting genuine lexical novelty (cosine similarity < 0.50) isolates authentic out-of-distribution transfer resilience from vocabulary memorization:
+* **Transfer Direction Asymmetry in Accuracy Drops:** When moving from the aggregate test set to the truly novel partition, accuracy drops differ markedly across transfer directions:
+  - In the **Dataset 2 -> Dataset 1** direction (novel partition N = 588), accuracy drops across models range from **8.41 pp** (STACKED_LSTM) to **21.11 pp** (TEXT_CNN). For instance, Logistic Regression drops by 11.32 pp (from 95.33% to 84.01%).
+  - In the **Dataset 1 -> Dataset 2** direction (novel partition N = 11,191), accuracy drops are substantially more moderate across linear architectures, dropping only **2.98 pp** for SGDClassifier (from 91.85% to 88.87%), **4.69 pp** for Logistic Regression, and **4.70 pp** for LinearSVC.
+* **Selective Phishing Recall Collapse in Deep Sequence Models (D2 -> D1):** On the Dataset 2 -> Dataset 1 novel partition (N = 588), deep learning sequence architectures suffer severe phishing recall degradation: AutoModel-DL recalls only **48.73%**, BiLSTM **55.33%**, TextCNN **59.39%**, and GRU **51.27%**, effectively missing approximately half of all novel attack vectors. In contrast, regularized linear models maintain high phishing recall of **94.92%–95.94%** (Logistic Regression: 95.94%, LinearSVC: 95.43%, SGDClassifier: 94.92%) at 80.95%–84.01% overall accuracy.
+* **Confidence Interval Overlap and Ranking Caution:** Because the Dataset 2 -> Dataset 1 novel subset comprises N = 588 samples, the 95% Wilson confidence intervals span approximately ±3 pp (Logistic Regression: [80.8–86.8%], LinearSVC: [80.1–86.1%], SGDClassifier: [77.6–83.9%], BiLSTM: [77.8–84.1%]). Consequently, these models exhibit overlapping uncertainty intervals rather than a statistically strict hierarchical superiority among the top linear classifiers.
+* **Robust Large-Scale Transfer (D1 -> D2):** On the Dataset 1 -> Dataset 2 novel partition (N = 11,191), SGDClassifier achieves **88.87%** accuracy [95% CI: 88.3–89.4%] and **88.97%** recall. Among deep architectures, TextCNN maintains **87.83%** accuracy [95% CI: 87.2–88.4%] and **90.56%** recall, and AutoModel-DL achieves **86.13%** accuracy and **95.40%** recall.
+
+### 3. Representation Space Ablation: Lexical vs. Engineered Structural Features
+The Optuna-tuned feature space ablation (Table 6e) provides conclusive evidence on the relative transferability of lexical versus structural representations:
+* **Lexical TF-IDF Dominance:** Across both transfer directions, TF-IDF representations alone drive nearly all discriminative capacity. In D2 -> D1, TF-IDF achieves 95.41% accuracy and 0.9934 ROC-AUC for Logistic Regression. In D1 -> D2, TF-IDF achieves 88.46% accuracy and 0.9697 ROC-AUC.
+* **Structural Feature Inefficacy:** Structural features alone (URL count, IP presence, urgency score, HTML flag) collapse toward majority-class baselines, achieving only 57.18% accuracy (ROC-AUC 0.6278) in D2 -> D1, and 48.00% accuracy (ROC-AUC 0.5174, with 0.00% phishing recall) in D1 -> D2.
+* **Ranking Metric Ablation:** In the D1 -> D2 transfer direction, TF-IDF alone achieved slightly higher ROC-AUC than the Hybrid configuration for both Logistic Regression (0.9697 vs. 0.9674) and LinearSVC (0.9691 vs. 0.9672), confirming that incorporating engineered structural features does not improve cross-dataset ranking discriminability.
+
+### 4. Intra-Dataset Train-Test Leakage and Conflicting Labels Audit
+A rigorous forensic audit of intra-dataset duplicate rows was conducted to assess whether duplicate leakage between training and test sets artificially inflated in-domain benchmarks:
+* **Dataset 1 Conflicting Labels:** Dataset 1 contains 533 rows with the text string `'empty'`, distributed across opposing classes (335 labeled phishing and 198 labeled legitimate). In the 20% stratified test split, 279 duplicate rows were present from the training set, of which **114 (40.86%)** possessed conflicting binary labels.
+* **Impact of Test Set Deduplication:** Evaluating native Dataset 1 models on a strictly deduplicated clean test set (N = 3,448) revealed that in-domain accuracy actually **increased** by +0.81 to +0.97 pp across all classifiers (Logistic Regression: 97.10% -> 98.03%; LinearSVC: 97.05% -> 97.97%; SGDClassifier: 96.83% -> 97.80%). This verifies that duplicate leakage did not artificially inflate in-domain accuracy; rather, contradictory labels on duplicate rows had imposed an artificial error ceiling.
+* **Dataset 2 Integrity:** The same audit conducted on Dataset 2 confirmed 0 empty text rows and 0 conflicting label rows across the entire 82,485 samples, confirming full label consistency.
+
+## Limitations and Threats to Validity
+Several methodological boundaries should be considered when interpreting these findings:
+1. **Token Pre-Processing Discrepancies:** Inspection of matched email pairs revealed differing token normalization conventions between the benchmarks: Dataset 1 preserved common English stop words and punctuation characters, whereas Dataset 2 stripped both. While target emails were evaluated through the source models' tokenizers/vectorizers, this pre-processing divergence explains why raw exact-string deduplication identified only 8 overlapping emails across datasets (and 2 between train and test splits), whereas TF-IDF cosine similarity detected substantial underlying lexical overlap (69.28% in D1 and 21.42% in D2 at cos >= 0.80).
+2. **In-Domain Optimization Failure of Specific Architectures:** Deep learning LSTM and Stacked LSTM models failed to converge during in-domain training on Dataset 1 (native ROC-AUC ≈ 0.52–0.53). Consequently, their low cross-dataset scores reflect in-domain optimization failure rather than domain shift transfer vulnerability.
+3. **Zero-Shot Decision Boundaries:** All transfer evaluations were conducted strictly zero-shot at the default 0.5 decision threshold without post-hoc threshold adjustment, temperature scaling, or domain adaptation.

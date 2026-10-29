@@ -41,6 +41,29 @@
       "truly_novel_cos_lt50_count": 11191,
       "truly_novel_cos_lt50_pct": 67.84
     },
+    "conflicting_labels_audit": {
+      "d1_unique_conflicting_texts": 1,
+      "d1_conflicting_rows_total": 533,
+      "d1_leaked_test_conflicting_count": 114,
+      "d1_leaked_test_total": 279,
+      "d1_leaked_test_conflicting_pct": 40.86,
+      "d2_unique_conflicting_texts": 0,
+      "d2_conflicting_rows_total": 0
+    },
+    "empty_rows_audit": {
+      "d1_empty_text_rows": 533,
+      "d1_empty_text_phishing": 335,
+      "d1_empty_text_legitimate": 198,
+      "d1_empty_text_in_test": 114,
+      "d1_empty_text_in_train": 419,
+      "d2_empty_text_rows": 0
+    },
+    "evaluation_sample_sizes": {
+      "d1_test_samples": 3727,
+      "d2_test_samples_dl": 16497,
+      "d2_test_samples_ml": 16498,
+      "note": "ML test split contains 16,498 samples (N=82,486 total) and DL test split contains 16,497 samples (N=82,485 total). Both pipelines use independent stratified splits and independent similarity masks."
+    },
     "reconstruction_assert_dl_d2": true,
     "reconstruction_assert_dl_d1": true,
     "reconstruction_assert_ml_d2": true,
@@ -373,7 +396,7 @@
           "precision": 0.7936,
           "recall": 0.9891,
           "f1": 0.8806,
-          "auc": 0.9798
+          "auc": 0.9799
         }
       },
       "skipped": {}
@@ -452,7 +475,7 @@
         },
         "RandomForestClassifier": {
           "in_domain_accuracy": 0.9659,
-          "in_domain_auc": 0.993,
+          "in_domain_auc": 0.9931,
           "cross_domain_accuracy": 0.8538,
           "delta_accuracy": -0.1121,
           "precision": 0.8345,
@@ -938,7 +961,7 @@
           "precision": 0.7936,
           "recall": 0.9891,
           "f1": 0.8806,
-          "auc": 0.9798
+          "auc": 0.9799
         },
         "near_duplicates_ge_080": {
           "accuracy": 0.95,
@@ -1173,18 +1196,18 @@
           "auc": 0.9672
         },
         "near_duplicates_ge_080": {
-          "accuracy": 0.9205,
-          "precision": 0.97,
-          "recall": 0.8635,
-          "f1": 0.9137,
-          "auc": 0.9899
+          "accuracy": 0.9885,
+          "precision": 0.9769,
+          "recall": 0.9994,
+          "f1": 0.988,
+          "auc": 0.9996
         },
         "truly_novel_lt_050": {
-          "accuracy": 0.8684,
-          "precision": 0.8959,
-          "recall": 0.855,
-          "f1": 0.8749,
-          "auc": 0.9547
+          "accuracy": 0.8378,
+          "precision": 0.8883,
+          "recall": 0.8012,
+          "f1": 0.8425,
+          "auc": 0.9392
         }
       },
       "LogisticRegression": {
@@ -1196,18 +1219,18 @@
           "auc": 0.9674
         },
         "near_duplicates_ge_080": {
-          "accuracy": 0.9196,
-          "precision": 0.9699,
-          "recall": 0.8618,
-          "f1": 0.9127,
-          "auc": 0.9891
+          "accuracy": 0.9882,
+          "precision": 0.9763,
+          "recall": 0.9994,
+          "f1": 0.9877,
+          "auc": 0.9996
         },
         "truly_novel_lt_050": {
-          "accuracy": 0.8697,
-          "precision": 0.8986,
-          "recall": 0.8545,
-          "f1": 0.876,
-          "auc": 0.9554
+          "accuracy": 0.8385,
+          "precision": 0.8912,
+          "recall": 0.7994,
+          "f1": 0.8428,
+          "auc": 0.94
         }
       },
       "VotingClassifier": {
@@ -1219,18 +1242,18 @@
           "auc": 0.9764
         },
         "near_duplicates_ge_080": {
-          "accuracy": 0.9239,
-          "precision": 0.9827,
-          "recall": 0.8589,
-          "f1": 0.9166,
-          "auc": 0.9937
+          "accuracy": 0.9917,
+          "precision": 0.9874,
+          "recall": 0.9952,
+          "f1": 0.9912,
+          "auc": 0.9998
         },
         "truly_novel_lt_050": {
-          "accuracy": 0.8831,
-          "precision": 0.9317,
-          "recall": 0.8449,
-          "f1": 0.8862,
-          "auc": 0.9669
+          "accuracy": 0.8515,
+          "precision": 0.9263,
+          "recall": 0.7885,
+          "f1": 0.8518,
+          "auc": 0.9558
         }
       },
       "SGDClassifier": {
@@ -1242,18 +1265,18 @@
           "auc": 0.9704
         },
         "near_duplicates_ge_080": {
-          "accuracy": 0.951,
-          "precision": 0.9674,
-          "recall": 0.9309,
-          "f1": 0.9488,
-          "auc": 0.9903
+          "accuracy": 0.9836,
+          "precision": 0.9733,
+          "recall": 0.9927,
+          "f1": 0.9829,
+          "auc": 0.9989
         },
         "truly_novel_lt_050": {
-          "accuracy": 0.9039,
-          "precision": 0.9072,
-          "recall": 0.915,
-          "f1": 0.9111,
-          "auc": 0.9595
+          "accuracy": 0.8887,
+          "precision": 0.9033,
+          "recall": 0.8897,
+          "f1": 0.8964,
+          "auc": 0.9467
         }
       },
       "auto_model": {
@@ -1265,18 +1288,18 @@
           "auc": 0.936
         },
         "near_duplicates_ge_080": {
-          "accuracy": 0.9301,
-          "precision": 0.9136,
-          "recall": 0.946,
-          "f1": 0.9295,
-          "auc": 0.9794
+          "accuracy": 0.9432,
+          "precision": 0.9192,
+          "recall": 0.9648,
+          "f1": 0.9415,
+          "auc": 0.9913
         },
         "truly_novel_lt_050": {
-          "accuracy": 0.8442,
-          "precision": 0.8092,
-          "recall": 0.93,
-          "f1": 0.8654,
-          "auc": 0.9142
+          "accuracy": 0.8388,
+          "precision": 0.8066,
+          "recall": 0.9237,
+          "f1": 0.8612,
+          "auc": 0.8984
         }
       },
       "GaussianNB": {
@@ -1288,18 +1311,18 @@
           "auc": 0.8644
         },
         "near_duplicates_ge_080": {
-          "accuracy": 0.8953,
-          "precision": 0.9714,
-          "recall": 0.8089,
-          "f1": 0.8828,
-          "auc": 0.8995
+          "accuracy": 0.9664,
+          "precision": 0.9788,
+          "recall": 0.9497,
+          "f1": 0.964,
+          "auc": 0.9676
         },
         "truly_novel_lt_050": {
-          "accuracy": 0.8384,
-          "precision": 0.9036,
-          "recall": 0.7835,
-          "f1": 0.8392,
-          "auc": 0.8478
+          "accuracy": 0.8068,
+          "precision": 0.8959,
+          "recall": 0.7277,
+          "f1": 0.8031,
+          "auc": 0.8197
         }
       },
       "MultinomialNB": {
@@ -1311,18 +1334,18 @@
           "auc": 0.9663
         },
         "near_duplicates_ge_080": {
-          "accuracy": 0.8693,
-          "precision": 0.9787,
-          "recall": 0.748,
-          "f1": 0.8479,
-          "auc": 0.9869
+          "accuracy": 0.9768,
+          "precision": 0.9846,
+          "recall": 0.9661,
+          "f1": 0.9752,
+          "auc": 0.9985
         },
         "truly_novel_lt_050": {
-          "accuracy": 0.8154,
-          "precision": 0.9456,
-          "recall": 0.6974,
-          "f1": 0.8027,
-          "auc": 0.9553
+          "accuracy": 0.7661,
+          "precision": 0.9374,
+          "recall": 0.6087,
+          "f1": 0.7381,
+          "auc": 0.9408
         }
       },
       "RandomForestClassifier": {
@@ -1334,18 +1357,18 @@
           "auc": 0.9437
         },
         "near_duplicates_ge_080": {
-          "accuracy": 0.9216,
-          "precision": 0.9381,
-          "recall": 0.8984,
-          "f1": 0.9178,
-          "auc": 0.9825
+          "accuracy": 0.9621,
+          "precision": 0.9475,
+          "recall": 0.9739,
+          "f1": 0.9605,
+          "auc": 0.9925
         },
         "truly_novel_lt_050": {
-          "accuracy": 0.8243,
-          "precision": 0.8023,
-          "recall": 0.8941,
-          "f1": 0.8457,
-          "auc": 0.9236
+          "accuracy": 0.8061,
+          "precision": 0.7948,
+          "recall": 0.8653,
+          "f1": 0.8285,
+          "auc": 0.9132
         }
       }
     }
