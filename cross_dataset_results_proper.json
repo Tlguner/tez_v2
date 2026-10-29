@@ -60,7 +60,77 @@
       "d1_empty_in_novel_subset_pct": 19.39,
       "d1_empty_in_novel_phishing": 74,
       "d1_empty_in_novel_legitimate": 40,
-      "d2_empty_text_rows": 0
+      "d2_empty_text_rows": 0,
+      "model_predictions_on_114_empty_rows": {
+        "AUTO_MODEL": {
+          "predicted_phishing": 0,
+          "predicted_legitimate": 114
+        },
+        "TEXT_CNN": {
+          "predicted_phishing": 0,
+          "predicted_legitimate": 114
+        },
+        "CNN": {
+          "predicted_phishing": 114,
+          "predicted_legitimate": 0
+        },
+        "HYBRID": {
+          "predicted_phishing": 0,
+          "predicted_legitimate": 114
+        },
+        "CNN_LSTM": {
+          "predicted_phishing": 114,
+          "predicted_legitimate": 0
+        },
+        "GRU": {
+          "predicted_phishing": 0,
+          "predicted_legitimate": 114
+        },
+        "BILSTM": {
+          "predicted_phishing": 0,
+          "predicted_legitimate": 114
+        },
+        "LSTM": {
+          "predicted_phishing": 114,
+          "predicted_legitimate": 0
+        },
+        "STACKED_LSTM": {
+          "predicted_phishing": 114,
+          "predicted_legitimate": 0
+        },
+        "LinearSVC": {
+          "predicted_phishing": 114,
+          "predicted_legitimate": 0
+        },
+        "LogisticRegression": {
+          "predicted_phishing": 114,
+          "predicted_legitimate": 0
+        },
+        "VotingClassifier": {
+          "predicted_phishing": 0,
+          "predicted_legitimate": 114
+        },
+        "SGDClassifier": {
+          "predicted_phishing": 114,
+          "predicted_legitimate": 0
+        },
+        "auto_model": {
+          "predicted_phishing": 114,
+          "predicted_legitimate": 0
+        },
+        "GaussianNB": {
+          "predicted_phishing": 0,
+          "predicted_legitimate": 114
+        },
+        "MultinomialNB": {
+          "predicted_phishing": 0,
+          "predicted_legitimate": 114
+        },
+        "RandomForestClassifier": {
+          "predicted_phishing": 114,
+          "predicted_legitimate": 0
+        }
+      }
     },
     "preprocessing_differences_audit": {
       "d1_academic_mailing_lists": {
@@ -518,7 +588,7 @@
           "precision": 0.7936,
           "recall": 0.9891,
           "f1": 0.8806,
-          "auc": 0.9797,
+          "auc": 0.9799,
           "clean_cross_domain_accuracy": 0.9026,
           "clean_delta_accuracy": -0.0645,
           "clean_precision": 0.8033,
@@ -1313,7 +1383,7 @@
           "precision": 0.7936,
           "recall": 0.9891,
           "f1": 0.8806,
-          "auc": 0.9797
+          "auc": 0.9799
         },
         "clean_test_no_empty": {
           "accuracy": 0.9026,

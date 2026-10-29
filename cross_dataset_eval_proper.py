@@ -31,7 +31,7 @@ from tensorflow.keras.preprocessing.sequence import pad_sequences
 import torch
 import torch.nn as nn
 
-REPO_DIR = r"c:\TU\deu\tez_v2\scraped data\phishing_mcp_server"
+REPO_DIR = os.path.dirname(os.path.abspath(__file__))
 if REPO_DIR not in sys.path:
     sys.path.insert(0, REPO_DIR)
 
@@ -328,7 +328,8 @@ report = {
             "d1_empty_in_novel_subset_pct": round(float((mask_te1_novel50 & empty_mask_te1).sum() / mask_te1_novel50.sum() * 100), 2),
             "d1_empty_in_novel_phishing": int(((te_dl_18k['text'] == 'empty') & (te_dl_18k['label'] == 1)).sum()),
             "d1_empty_in_novel_legitimate": int(((te_dl_18k['text'] == 'empty') & (te_dl_18k['label'] == 0)).sum()),
-            "d2_empty_text_rows": int((df_dl_82k['text'] == 'empty').sum())
+            "d2_empty_text_rows": int((df_dl_82k['text'] == 'empty').sum()),
+            "model_predictions_on_114_empty_rows": {}
         },
         "preprocessing_differences_audit": {
             "d1_academic_mailing_lists": d1_prep,
@@ -454,6 +455,20 @@ for m_key, m_file in dl_models:
         cross_near80 = run_dl_pytorch_eval(model, X_18k_for_dl82k[mask_te1_near80], y_dl_18k.values[mask_te1_near80])
         cross_novel50 = run_dl_pytorch_eval(model, X_18k_for_dl82k[mask_te1_novel50], y_dl_18k.values[mask_te1_novel50])
         cross_clean_novel50 = run_dl_pytorch_eval(model, X_18k_for_dl82k[clean_mask_te1_novel50], y_dl_18k.values[clean_mask_te1_novel50])
+        
+        # Empirical prediction on the 114 empty rows
+        X_empty_t = torch.tensor(X_18k_for_dl82k[empty_mask_te1], dtype=torch.long)
+        with torch.no_grad():
+            out_e = forward_pytorch(model, X_empty_t.to(device))
+            if out_e.shape[-1] == 1:
+                pr_e = out_e.squeeze(-1).cpu().numpy()
+            else:
+                pr_e = torch.softmax(out_e, dim=-1)[:, 1].cpu().numpy()
+        pred_e = (pr_e >= 0.5).astype(int)
+        report["metadata"]["empty_rows_audit"]["model_predictions_on_114_empty_rows"][m_key] = {
+            "predicted_phishing": int(np.sum(pred_e == 1)),
+            "predicted_legitimate": int(np.sum(pred_e == 0))
+        }
         
         report["DL_cross_dataset"]["D2_models_tested_on_D1"]["models"][m_key] = {
             "in_domain_accuracy": in_domain["accuracy"],
@@ -612,6 +627,13 @@ for m_name, m_file in ml_models:
         near_m = get_ml_metrics(m, X_ml_18k_for_82k[mask_te1_near80], y_ml_18k.values[mask_te1_near80])
         novel_m = get_ml_metrics(m, X_ml_18k_for_82k[mask_te1_novel50], y_ml_18k.values[mask_te1_novel50])
         clean_novel_m = get_ml_metrics(m, X_ml_18k_for_82k[clean_mask_te1_novel50], y_ml_18k.values[clean_mask_te1_novel50])
+        
+        # Empirical prediction on the 114 empty rows
+        pred_e, _ = predict_chunked(m, X_ml_18k_for_82k[empty_mask_te1])
+        report["metadata"]["empty_rows_audit"]["model_predictions_on_114_empty_rows"][m_name] = {
+            "predicted_phishing": int(np.sum(pred_e == 1)),
+            "predicted_legitimate": int(np.sum(pred_e == 0))
+        }
         
         report["ML_hybrid_cross_dataset"]["D2_models_tested_on_D1"]["models"][m_name] = {
             "in_domain_accuracy": in_m["accuracy"],
