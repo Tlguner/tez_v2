@@ -106,6 +106,32 @@ conflicting_leaked_pct = round(float(conflicting_leaked_count / len(leaked_te_d1
 print(f"[AUDIT] D1 Conflicting Labels: {len(d1_conflicts)} unique texts ({d1_conflict_rows} total rows). Leaked test conflicting: {conflicting_leaked_count}/{len(leaked_te_d1)} ({conflicting_leaked_pct}%)", flush=True)
 print(f"[AUDIT] D2 Conflicting Labels: {len(d2_conflicts)} unique texts ({d2_conflict_rows} total rows)", flush=True)
 
+# Empirical Preprocessing Profile Audit (Stop words and punctuation)
+from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS
+import string
+
+def get_preprocessing_profile(df):
+    texts = df['text'].astype(str)
+    total_chars = texts.str.len().sum()
+    punct_set = set(string.punctuation)
+    total_punct = texts.apply(lambda s: sum(1 for c in s if c in punct_set)).sum()
+    words = texts.str.split()
+    total_words = words.apply(len).sum()
+    total_stops = words.apply(lambda w_list: sum(1 for w in w_list if w.lower() in ENGLISH_STOP_WORDS)).sum()
+    return {
+        "total_samples": len(df),
+        "total_words": int(total_words),
+        "stop_words_count": int(total_stops),
+        "stop_words_pct": round(float(total_stops / total_words * 100), 2),
+        "total_chars": int(total_chars),
+        "punct_chars_count": int(total_punct),
+        "punct_chars_pct": round(float(total_punct / total_chars * 100), 2)
+    }
+
+d1_prep = get_preprocessing_profile(df_dl_18k)
+d2_prep = get_preprocessing_profile(df_dl_82k)
+print(f"[AUDIT] Preprocessing Profile: D1 Stop-words={d1_prep['stop_words_pct']}%, Punct={d1_prep['punct_chars_pct']}% | D2 Stop-words={d2_prep['stop_words_pct']}%, Punct={d2_prep['punct_chars_pct']}%", flush=True)
+
 # ==========================================
 # 2. DYNAMIC LEXICAL SIMILARITY (SOURCE TRAIN VS TARGET TEST)
 # ==========================================
@@ -127,6 +153,10 @@ for i in range(0, X_te1.shape[0], chunk_size):
 mask_te1_near80 = (max_sim_te1 >= 0.80)
 mask_te1_near90 = (max_sim_te1 >= 0.90)
 mask_te1_novel50 = (max_sim_te1 < 0.50)
+
+empty_mask_te1 = (te_dl_18k['text'] == 'empty').values
+clean_mask_te1 = ~empty_mask_te1
+clean_mask_te1_novel50 = mask_te1_novel50 & clean_mask_te1
 
 dir_a_sim_stats = {
     "target_test_samples": len(te_dl_18k),
@@ -294,7 +324,17 @@ report = {
             "d1_empty_text_legitimate": int(((df_dl_18k['text'] == 'empty') & (df_dl_18k['label'] == 0)).sum()),
             "d1_empty_text_in_test": int((te_dl_18k['text'] == 'empty').sum()),
             "d1_empty_text_in_train": int((tr_dl_18k['text'] == 'empty').sum()),
+            "d1_empty_in_novel_subset_count": int((mask_te1_novel50 & empty_mask_te1).sum()),
+            "d1_empty_in_novel_subset_pct": round(float((mask_te1_novel50 & empty_mask_te1).sum() / mask_te1_novel50.sum() * 100), 2),
+            "d1_empty_in_novel_phishing": int(((te_dl_18k['text'] == 'empty') & (te_dl_18k['label'] == 1)).sum()),
+            "d1_empty_in_novel_legitimate": int(((te_dl_18k['text'] == 'empty') & (te_dl_18k['label'] == 0)).sum()),
             "d2_empty_text_rows": int((df_dl_82k['text'] == 'empty').sum())
+        },
+        "preprocessing_differences_audit": {
+            "d1_academic_mailing_lists": d1_prep,
+            "d2_corporate_threat_intelligence": d2_prep,
+            "stop_words_ratio_d1_vs_d2": round(float(d1_prep["stop_words_pct"] / d2_prep["stop_words_pct"]), 2),
+            "punctuation_ratio_d1_vs_d2": round(float(d1_prep["punct_chars_pct"] / d2_prep["punct_chars_pct"]), 2)
         },
         "evaluation_sample_sizes": {
             "d1_test_samples": len(te_dl_18k),
@@ -410,8 +450,10 @@ for m_key, m_file in dl_models:
         delta_acc = round(cross_domain["accuracy"] - in_domain["accuracy"], 4)
         
         # Subset eval
+        cross_clean_all = run_dl_pytorch_eval(model, X_18k_for_dl82k[clean_mask_te1], y_dl_18k.values[clean_mask_te1])
         cross_near80 = run_dl_pytorch_eval(model, X_18k_for_dl82k[mask_te1_near80], y_dl_18k.values[mask_te1_near80])
         cross_novel50 = run_dl_pytorch_eval(model, X_18k_for_dl82k[mask_te1_novel50], y_dl_18k.values[mask_te1_novel50])
+        cross_clean_novel50 = run_dl_pytorch_eval(model, X_18k_for_dl82k[clean_mask_te1_novel50], y_dl_18k.values[clean_mask_te1_novel50])
         
         report["DL_cross_dataset"]["D2_models_tested_on_D1"]["models"][m_key] = {
             "in_domain_accuracy": in_domain["accuracy"],
@@ -420,14 +462,22 @@ for m_key, m_file in dl_models:
             "precision": cross_domain["precision"],
             "recall": cross_domain["recall"],
             "f1": cross_domain["f1"],
-            "auc": cross_domain["auc"]
+            "auc": cross_domain["auc"],
+            "clean_cross_domain_accuracy": cross_clean_all["accuracy"],
+            "clean_delta_accuracy": round(cross_clean_all["accuracy"] - in_domain["accuracy"], 4),
+            "clean_precision": cross_clean_all["precision"],
+            "clean_recall": cross_clean_all["recall"],
+            "clean_f1": cross_clean_all["f1"],
+            "clean_auc": cross_clean_all["auc"]
         }
         report["subset_evaluation"]["D2_models_tested_on_D1"][m_key] = {
             "all": cross_domain,
+            "clean_test_no_empty": cross_clean_all,
             "near_duplicates_ge_080": cross_near80,
-            "truly_novel_lt_050": cross_novel50
+            "truly_novel_lt_050": cross_novel50,
+            "clean_novel_lt_050_no_empty": cross_clean_novel50
         }
-        print(f"{m_key:12s} | In: {in_domain['accuracy']*100:.2f}% | Cross: {cross_domain['accuracy']*100:.2f}% (d: {delta_acc*100:+.2f}%) | Near: {cross_near80['accuracy']*100:.2f}% | Novel: {cross_novel50['accuracy']*100:.2f}% | AUC: {cross_domain['auc']:.4f}", flush=True)
+        print(f"{m_key:12s} | In: {in_domain['accuracy']*100:.2f}% | Cross: {cross_domain['accuracy']*100:.2f}% (Clean: {cross_clean_all['accuracy']*100:.2f}%) | Near: {cross_near80['accuracy']*100:.2f}% | Novel: {cross_novel50['accuracy']*100:.2f}% (Clean Novel: {cross_clean_novel50['accuracy']*100:.2f}%, Rec: {cross_clean_novel50['recall']*100:.2f}%) | AUC: {cross_domain['auc']:.4f}", flush=True)
     except Exception as e:
         report["DL_cross_dataset"]["D2_models_tested_on_D1"]["skipped"][m_key] = str(e)
         print(f"{m_key:12s} | Error: {e}", flush=True)
@@ -558,8 +608,10 @@ for m_name, m_file in ml_models:
         delta = round(cross_m["accuracy"] - in_m["accuracy"], 4)
         
         # Subset eval
+        clean_cross_m = get_ml_metrics(m, X_ml_18k_for_82k[clean_mask_te1], y_ml_18k.values[clean_mask_te1])
         near_m = get_ml_metrics(m, X_ml_18k_for_82k[mask_te1_near80], y_ml_18k.values[mask_te1_near80])
         novel_m = get_ml_metrics(m, X_ml_18k_for_82k[mask_te1_novel50], y_ml_18k.values[mask_te1_novel50])
+        clean_novel_m = get_ml_metrics(m, X_ml_18k_for_82k[clean_mask_te1_novel50], y_ml_18k.values[clean_mask_te1_novel50])
         
         report["ML_hybrid_cross_dataset"]["D2_models_tested_on_D1"]["models"][m_name] = {
             "in_domain_accuracy": in_m["accuracy"],
@@ -569,14 +621,22 @@ for m_name, m_file in ml_models:
             "precision": cross_m["precision"],
             "recall": cross_m["recall"],
             "f1": cross_m["f1"],
-            "auc": cross_m["auc"]
+            "auc": cross_m["auc"],
+            "clean_cross_domain_accuracy": clean_cross_m["accuracy"],
+            "clean_delta_accuracy": round(clean_cross_m["accuracy"] - in_m["accuracy"], 4),
+            "clean_precision": clean_cross_m["precision"],
+            "clean_recall": clean_cross_m["recall"],
+            "clean_f1": clean_cross_m["f1"],
+            "clean_auc": clean_cross_m["auc"]
         }
         report["subset_evaluation"]["D2_models_tested_on_D1"][m_name] = {
             "all": cross_m,
+            "clean_test_no_empty": clean_cross_m,
             "near_duplicates_ge_080": near_m,
-            "truly_novel_lt_050": novel_m
+            "truly_novel_lt_050": novel_m,
+            "clean_novel_lt_050_no_empty": clean_novel_m
         }
-        print(f"{m_name:24s} | In: {in_m['accuracy']*100:.2f}% | Cross: {cross_m['accuracy']*100:.2f}% (d: {delta*100:+.2f}%) | Near: {near_m['accuracy']*100:.2f}% | Novel: {novel_m['accuracy']*100:.2f}% | AUC: {cross_m['auc']:.4f}", flush=True)
+        print(f"{m_name:24s} | In: {in_m['accuracy']*100:.2f}% | Cross: {cross_m['accuracy']*100:.2f}% (Clean: {clean_cross_m['accuracy']*100:.2f}%) | Near: {near_m['accuracy']*100:.2f}% | Novel: {novel_m['accuracy']*100:.2f}% (Clean Novel: {clean_novel_m['accuracy']*100:.2f}%, Rec: {clean_novel_m['recall']*100:.2f}%) | AUC: {cross_m['auc']:.4f}", flush=True)
     except Exception as e:
         report["ML_hybrid_cross_dataset"]["D2_models_tested_on_D1"]["skipped"][m_name] = str(e)
         print(f"{m_name:24s} | Error: {e}", flush=True)
